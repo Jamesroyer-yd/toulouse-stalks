@@ -1,6 +1,6 @@
 # Toulouse Stalks · règles de la version 2
 
-Jeu de traque à déplacement caché sur le vrai réseau Tisséo, de 6 à 20 joueurs, chacun sur son téléphone. On joue ensemble à voix haute, autour d'une table ou sur un salon vocal Discord. Le créateur de la partie choisit sa place : **il joue**, avec un rôle tiré au sort comme les autres, ou **il est maître du jeu** : il ne joue pas, voit toute la partie, rôles, fugitifs, objets et vrais résultats d'enquête, pour arbitrer les annonces et donner le rythme.
+Jeu de traque à déplacement caché sur le vrai réseau Tisséo, de 6 à 20 joueurs, chacun sur son téléphone. On joue ensemble à voix haute, autour d'une table ou sur un salon vocal Discord. Le créateur de la partie choisit sa place : **il joue**, avec un rôle tiré au sort comme les autres, ou **il est maître du jeu** : il ne joue pas, voit toute la partie : rôles, corrompus, fugitifs et objets, et il donne le rythme.
 
 ## Rôles, tirés au sort
 - **Fugitifs** : ils se connaissent, voient où sont les objets cachés, et savent qui sont les corrompus.

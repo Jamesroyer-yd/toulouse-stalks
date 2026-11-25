@@ -382,8 +382,7 @@ export function vue(p, id) {
 }
 
 // ---------- vue du maître du jeu ----------
-// Il voit tout : rôles, corrompus, positions des fugitifs, objets, enquêtes de
-// chacun, pour arbitrer les annonces faites à voix haute.
+// Il voit tout : rôles, corrompus, positions des fugitifs et objets.
 function vueMJ(p, id) {
   const joueurs = p.ordre.map(f => {
     const j = p.joueurs[f];
@@ -397,7 +396,6 @@ function vueMJ(p, id) {
   if (!p.ordre.some(f => p.joueurs[f].role)) return v;
   if (p.reglages.specialites) v.specialites = [...Array(p.reglages.equipes).keys()].map(e => specialite(p, e));
   v.objets = p.objets; v.objetsRamasses = objetsEquipe(p);
-  v.enquetes = Object.entries(p.enquetes || {}).flatMap(([f, l]) => l.map(e => ({ ...e, auteur: p.joueurs[f].nom, equipe: p.joueurs[f].equipe }))).filter(e => e.manche >= p.manche - 1);
   if (p.phase === 'police') { v.equipeEnCours = equipeEnCours(p); v.ordreEquipes = p.ordreEquipes; v.finis = Object.keys(p.tour).filter(f => p.tour[f].fini); }
   if (p.phase === 'fugitifs') v.ontJoue = Object.keys(p.coups);
   if (['fugitifs', 'police'].includes(p.phase)) v.bloques = arretsBloques(p);

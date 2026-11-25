@@ -284,8 +284,7 @@
     jeu.plan.maj({
       objets: vue.objets || [], bloques: vue.bloques || [],
       police: vue.joueurs.filter(j => j.role === 'policier').map(j => ({ arret: j.position, coul: j.corrompu ? C.rouge : equipe(j.equipe)[1], lettre: equipe(j.equipe)[2] })),
-      fugitifs: vue.joueurs.filter(j => j.role === 'fugitif').map(j => ({ arret: j.position, lettre: j.nom[0].toUpperCase(), libre: j.libre })),
-      traces: (vue.enquetes || []).filter(e => e.manche === vue.manche).flatMap(e => (e.traces || (e.trace ? [{ arret: e.arret, manche: e.mancheTrace }] : [])).map(t => ({ arret: t.arret, trace: true, texte: e.auteur + ' · M' + t.manche })))
+      fugitifs: vue.joueurs.filter(j => j.role === 'fugitif').map(j => ({ arret: j.position, lettre: j.nom[0].toUpperCase(), libre: j.libre }))
     });
     const tour = vue.phase === 'fugitifs' ? ['Les fugitifs se déplacent', C.citron] : ['Au tour de l’équipe ' + equipe(vue.equipeEnCours)[0], equipe(vue.equipeEnCours)[1]];
     const barre = h('div', { class: 'barre' }, h('div', {}, h('p', { class: 'sur' }, 'MJ · manche ' + vue.manche + ' / ' + vue.reglages.manches), h('p', { class: 'tour', couleur: tour[1] }, tour[0])),
@@ -297,9 +296,6 @@
       : vue.joueurs.filter(j => j.role === 'policier' && j.equipe === vue.equipeEnCours && !(vue.finis || []).includes(j.id));
     const x = [h('h2', {}, attente.length ? 'On attend : ' + attente.map(j => j.nom).join(', ') : 'Tout le monde a joué')];
     x.push(h('div', { class: 'carte' }, h('h2', {}, 'Fugitifs'), vue.joueurs.filter(j => j.role === 'fugitif').map(j => ligne(j.nom, j.libre ? nomArret(j.position) + ' · ' + j.objets + ' objet' + (j.objets > 1 ? 's' : '') : 'arrêté'))));
-    const enq = (vue.enquetes || []).filter(e => e.manche === vue.manche);
-    if (enq.length) x.push(h('div', { class: 'carte' }, h('h2', {}, 'Vrais résultats d’enquête, pour vérifier les annonces'), h('ul', { class: 'liste' }, enq.slice(-8).reverse().map(e => h('li', {},
-      e.auteur + ', ' + equipe(e.equipe)[0] + ' : ' + (e.traces ? 'autour de ' + nomArret(e.arret) + ', ' + (e.traces.length ? e.traces.map(t => nomArret(t.arret)).join(', ') : 'rien') : nomArret(e.arret) + ', ' + (e.trace ? 'trace' : 'rien')))))));
     x.push(h('div', { class: 'carte' }, h('h2', {}, 'Corrompus'), vue.joueurs.filter(j => j.corrompu).map(j => ligne(j.nom, 'équipe ' + equipe(j.equipe)[0]))));
     if (vue.journal.length) x.push(h('ul', { class: 'liste' }, vue.journal.slice(-3).reverse().map(j => h('li', {}, 'M' + j.manche + ' · ' + j.texte))));
     x.push(forcer());
