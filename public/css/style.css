@@ -74,7 +74,12 @@ h1{font:700 30px/1.18 var(--serif)}
 .compteur{width:auto;height:auto;padding:6px 12px;border-radius:999px;font-weight:600}
 .panneau{position:absolute;left:0;right:0;bottom:0;max-height:58%;overflow:auto;display:grid;gap:10px;
   padding:10px 20px calc(24px + env(safe-area-inset-bottom));background:var(--surface);border:1px solid var(--bord);border-bottom:0;border-radius:22px 22px 0 0}
-.panneau::before{content:"";width:40px;height:4px;border-radius:2px;background:var(--bord);justify-self:center}
+.poignee{position:relative;display:flex;align-items:center;gap:10px;min-height:32px;margin:-6px -8px 0;padding:6px 8px;border-radius:10px;text-align:left}
+.poignee .barrette{position:absolute;left:50%;top:4px;width:40px;height:4px;margin-left:-20px;border-radius:2px;background:var(--bord)}
+.poignee .sens{margin-left:auto;padding-top:6px;font-size:12px;font-weight:600;color:var(--txt2)}
+.poignee .titre-replie{padding-top:6px;font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.poignee:focus-visible{outline:2px solid var(--citron);outline-offset:2px}
+.panneau.replie{gap:0;padding-bottom:calc(12px + env(safe-area-inset-bottom))}
 .panneau h2{font-size:16px;font-weight:600}
 .choix{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .option{display:grid;gap:2px;padding:10px 12px;border-radius:10px;text-align:left;background:var(--haut);border:1px solid var(--bord)}

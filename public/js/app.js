@@ -195,7 +195,7 @@
       const racine = h('div', { class: 'jeu' }, conteneur);
       afficher(racine);
       const plan = Plan(conteneur, reseau);
-      plan.surChoix(a => { local.choisi = a; partie(); });
+      plan.surChoix(a => { local.choisi = a; local.replie = false; partie(); });
       jeu = { racine, plan, barre: null, outils: null, panneau: null };
       const p = r.role === 'fugitif' || r.corrompu ? vue.joueurs.find(j => j.id === vue.moi).position : m.position;
       if (p != null) plan.centrer(p);
@@ -227,7 +227,7 @@
       h('button', { type: 'button', 'aria-label': 'Recentrer sur ma position', clic: () => jeu.plan.centrer(m.position ?? 0) }, '◎'),
       h('button', { type: 'button', 'aria-label': 'Voir tout le réseau', clic: () => jeu.plan.toutVoir() }, '⤢'));
     jeu.barre?.remove(); jeu.outils?.remove(); jeu.panneau?.remove();
-    jeu.barre = barre; jeu.outils = outils; jeu.panneau = h('section', { class: 'panneau', 'aria-label': 'Actions' }, panneau(monTourFugitif, monTourPolice));
+    jeu.barre = barre; jeu.outils = outils; jeu.panneau = cadrePanneau('Actions', panneau(monTourFugitif, monTourPolice), partie);
     jeu.racine.append(barre, outils, jeu.panneau);
     jeu.resultat?.remove(); jeu.resultat = null;
     if (local.resultat) { jeu.resultat = carteResultat(local.resultat); jeu.racine.append(jeu.resultat); }
@@ -247,6 +247,21 @@
           : (zone.length > 1 ? 'Aucune trace autour de ' + nomArret(e.arret) + ' : ' + zone.length + ' arrêts fouillés.' : 'Aucune trace à ' + nomArret(e.arret) + '.')),
         h('p', { class: 'consigne' }, vue.role?.corrompu ? 'Annonce-le à voix haute… ou mens.' : 'Annonce-le à voix haute à la police.'),
         bouton('Continuer', fermer)));
+  }
+
+  // Panneau du bas repliable : replié, il ne garde que son titre pour libérer le plan.
+  // Il se rouvre seul quand le titre change, c'est-à-dire quand la situation change.
+  function cadrePanneau(nom, contenu, refaire) {
+    const s = h('section', { class: 'panneau', 'aria-label': nom }, contenu);
+    const titre = s.querySelector('h2')?.textContent || nom;
+    if (local.replie && local.titreReplie !== titre) local.replie = false;
+    const basculer = () => { local.replie = !local.replie; local.titreReplie = titre; refaire(); };
+    if (local.replie) return h('section', { class: 'panneau replie', 'aria-label': nom },
+      h('button', { type: 'button', class: 'poignee', 'aria-expanded': 'false', clic: basculer },
+        h('span', { class: 'barrette' }), h('span', { class: 'titre-replie' }, titre), h('span', { class: 'sens' }, 'Ouvrir ▴')));
+    s.prepend(h('button', { type: 'button', class: 'poignee', 'aria-expanded': 'true', 'aria-label': 'Réduire le panneau', clic: basculer },
+      h('span', { class: 'barrette' }), h('span', { class: 'sens' }, 'Réduire ▾')));
+    return s;
   }
 
   function panneau(monTourFugitif, monTourPolice) {
@@ -344,7 +359,7 @@
     if (vue.journal.length) x.push(h('ul', { class: 'liste' }, vue.journal.slice(-3).reverse().map(j => h('li', {}, 'M' + j.manche + ' · ' + j.texte))));
     x.push(forcer());
     jeu.barre?.remove(); jeu.outils?.remove(); jeu.panneau?.remove();
-    jeu.barre = barre; jeu.outils = outils; jeu.panneau = h('section', { class: 'panneau', 'aria-label': 'Tableau du MJ' }, x);
+    jeu.barre = barre; jeu.outils = outils; jeu.panneau = cadrePanneau('Tableau du MJ', x, partieMJ);
     jeu.racine.append(barre, outils, jeu.panneau);
   }
   function accusationMJ() {
