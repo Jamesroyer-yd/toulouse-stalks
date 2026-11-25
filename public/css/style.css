@@ -127,3 +127,12 @@ h1{font-size:clamp(24px,4.3vh,30px)}
 .lien{background:none;border:0;color:var(--citron);font-weight:600;font-size:13px;padding:6px 0;text-decoration:underline;text-underline-offset:3px}
 .centre-texte{align-self:center}
 @media (max-height:700px){.pastille{padding:3px 9px;font-size:11.5px}.pastilles{gap:6px}}
+
+/* création : options les unes sous les autres */
+.choix.colonne{grid-template-columns:1fr}
+/* partie d'essai : barre en haut pour choisir l'écran affiché */
+.essai{position:fixed;top:0;left:0;right:0;z-index:30;display:flex;align-items:center;gap:10px;padding:calc(6px + env(safe-area-inset-top)) 14px 6px;
+  background:#2a2440;border-bottom:1px solid var(--citron);font-size:12px;font-weight:600;color:var(--citron)}
+.essai select{flex:1;min-width:0;padding:6px 8px;border-radius:8px;border:1px solid var(--bord);background:var(--haut);color:var(--txt);font:500 13px var(--sans)}
+body.essai-actif #ecran>.page{padding-top:calc(clamp(18px,4.5vh,40px) + 44px + env(safe-area-inset-top))}
+body.essai-actif .jeu{top:44px}

@@ -45,7 +45,7 @@ export default {
       const corps = await lireCorps(req); if (!corps) return json({ erreur: 'Requête invalide.' }, 400);
       for (let essai = 0; essai < 5; essai++) {
         const code = nouveauCode();
-        const rep = await salle(env, code).fetch('https://partie/creer', { method: 'POST', body: JSON.stringify({ code, nom: corps.nom, mj: corps.mj === true }) });
+        const rep = await salle(env, code).fetch('https://partie/creer', { method: 'POST', body: JSON.stringify({ code, nom: corps.nom, mj: corps.mj === true, essai: Number.isInteger(corps.essai) ? corps.essai : 0 }) });
         if (rep.status !== 409) return rep;
       }
       return json({ erreur: 'Réessaie dans un instant.' }, 503);
@@ -77,7 +77,7 @@ export class Partie extends DurableObject {
       if (action === 'creer') {
         if (p) return json({ erreur: 'code pris' }, 409);
         const id = hexa(8), jeton = hexa(32);
-        const partie = M.nouvellePartie(corps.code, id, corps.nom, corps.mj === true);
+        const partie = M.nouvellePartie(corps.code, id, corps.nom, corps.mj === true, Number.isInteger(corps.essai) ? corps.essai : 0);
         await this.ctx.storage.put({ partie, jetons: { [jeton]: id } });
         await this.ctx.storage.setAlarm(Date.now() + DUREE);
         return json({ code: corps.code, jeton });
@@ -123,12 +123,21 @@ export class Partie extends DurableObject {
       const id = Object.hasOwn(jetons, msg.jeton) ? jetons[msg.jeton] : null;
       if (!id) return ws.close(1008, 'Jeton inconnu');
       a.id = id; ws.serializeAttachment(a);
-      return ws.send(JSON.stringify({ type: 'vue', vue: M.vue(p, id) }));
+      return ws.send(JSON.stringify({ type: 'vue', vue: this.vuePour(p, a) }));
     }
     if (!a.id) return ws.close(1008, 'Non identifié');
 
+    // partie d'essai : le MJ choisit le joueur dont il voit l'écran et prend la place
+    if (msg.type === 'incarner') {
+      try { a.comme = M.incarnation(p, a.id, msg.joueur ?? null); } catch (e) { return this.erreur(ws, e instanceof M.Erreur ? e.message : 'Action impossible.'); }
+      ws.serializeAttachment(a);
+      return ws.send(JSON.stringify({ type: 'vue', vue: this.vuePour(p, a) }));
+    }
+
     try {
-      const r = this.jouer(p, a.id, msg);
+      // en essai, les actions du MJ incarné partent au nom du faux joueur
+      const acteur = p.essai && a.comme && M.estMJ(p, a.id) ? a.comme : a.id;
+      const r = this.jouer(p, acteur, msg);
       await this.ctx.storage.put('partie', p);
       if (r !== undefined) ws.send(JSON.stringify({ type: 'retour', action: msg.type, resultat: r }));
       this.diffuser(p);
@@ -158,8 +167,15 @@ export class Partie extends DurableObject {
   diffuser(p) {
     for (const ws of this.ctx.getWebSockets()) {
       const a = ws.deserializeAttachment();
-      if (a?.id) try { ws.send(JSON.stringify({ type: 'vue', vue: M.vue(p, a.id) })); } catch {}
+      if (a?.id) try { ws.send(JSON.stringify({ type: 'vue', vue: this.vuePour(p, a) })); } catch {}
     }
+  }
+  // vue envoyée à une connexion : la sienne, ou celle du faux joueur incarné en essai
+  vuePour(p, a) {
+    const essaiMJ = p.essai && M.estMJ(p, a.id);
+    const v = M.vue(p, essaiMJ && a.comme ? a.comme : a.id);
+    if (essaiMJ) v.essai = { comme: a.comme || null, joueurs: M.listeEssai(p), createur: a.id };
+    return v;
   }
   erreur(ws, message) { try { ws.send(JSON.stringify({ type: 'erreur', message })); } catch {} }
   webSocketClose(ws, code) { try { ws.close(code, 'Fin'); } catch {} }

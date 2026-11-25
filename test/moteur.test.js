@@ -220,3 +220,21 @@ test('MJ : son prénom est réservé, et un joueur ne voit pas ce qu’il voit',
   const hon = p.ordre.find(f => p.joueurs[f].role === 'policier' && !p.joueurs[f].corrompu);
   assert.equal(M.vue(p, hon).estMJ, undefined); assert.equal(M.vue(p, hon).mj, 'Gérard');
 });
+
+// ---------- partie d'essai ----------
+test('essai : de faux joueurs, et le MJ peut prendre la place de chacun', () => {
+  const p = M.nouvellePartie('ES', 'mj', 'James', false, 10);
+  assert.equal(p.essai, true); assert.equal(p.ordre.length, 10); assert.ok(M.estMJ(p, 'mj'));
+  M.lancer(p, 'mj', reseau, graine(4));
+  assert.equal(M.incarnation(p, 'mj', 'essai-3'), 'essai-3');
+  assert.equal(M.incarnation(p, 'mj', null), null);
+  assert.throws(() => M.incarnation(p, 'mj', '__proto__'), /inconnu/);
+  assert.throws(() => M.incarnation(p, 'essai-1', 'essai-2'), /Réservé/);
+  assert.throws(() => M.nouvellePartie('ES', 'mj', 'James', false, 3), /de 6 à 20/);
+  assert.throws(() => M.nouvellePartie('ES', 'mj', 'James', false, 1e9), /de 6 à 20/);
+});
+test('essai : impossible dans une vraie partie', () => {
+  const p = M.nouvellePartie('VR', 'mj', 'James', true);
+  for (let i = 0; i < 8; i++) M.rejoindre(p, 'j' + i, 'Joueur ' + i);
+  assert.throws(() => M.incarnation(p, 'mj', 'j1'), /Réservé/);
+});

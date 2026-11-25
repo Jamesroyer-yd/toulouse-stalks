@@ -8,7 +8,7 @@
   const FORMAT_CODE = /^[A-HJ-NP-Z2-9]{5}$/, FORMAT_JETON = /^[0-9a-f]{64}$/;
   const ecran = document.getElementById('ecran'), bandeau = document.getElementById('message');
   let reseau = null, session = null, ws = null, vue = null, jeu = null, essais = 0;
-  const local = { accueil: 'choix', choisi: null, action: 'enqueter', modeMJ: false, reglages: false };
+  const local = { accueil: 'choix', choisi: null, action: 'enqueter', mode: 'joue', essaiN: 10, reglages: false };
 
   // ---------- construction sûre ----------
   function h(tag, props, ...enfants) {
@@ -66,7 +66,7 @@
     ws.onopen = () => { essais = 0; ws.send(JSON.stringify({ type: 'auth', jeton: session.jeton })); };
     ws.onmessage = e => {
       let m; try { m = JSON.parse(e.data); } catch { return; }
-      if (m.type === 'vue') { vue = m.vue; rendre(); }
+      if (m.type === 'vue') { if (vue && m.vue.moi !== vue.moi) { jeu = null; local.choisi = null; } vue = m.vue; rendre(); }
       else if (m.type === 'erreur') message(m.message);
       else if (m.type === 'retour' && m.action === 'arreter') message(m.resultat.reussie ? 'Arrestation réussie !' : 'Personne à arrêter ici.');
     };
@@ -83,11 +83,15 @@
     const champNom = h('label', { class: 'champ', for: 'nom' }, h('span', {}, 'Ton prénom'), nom);
     if (local.accueil === 'creer') return afficher(h('section', { class: 'page' }, h('p', { class: 'sur' }, 'Créer'), h('h1', {}, 'Nouvelle partie'),
       h('p', { class: 'intro' }, 'Choisis ta place dans cette partie.'),
-      h('div', { class: 'choix' },
-        h('button', { type: 'button', class: 'option', 'aria-pressed': String(!local.modeMJ), clic: () => { local.modeMJ = false; const v = nom.value; accueil(); document.getElementById('nom').value = v; } }, h('b', {}, 'Je joue'), h('span', {}, 'Mon rôle est tiré au sort, comme les autres')),
-        h('button', { type: 'button', class: 'option', 'aria-pressed': String(local.modeMJ), clic: () => { local.modeMJ = true; const v = nom.value; accueil(); document.getElementById('nom').value = v; } }, h('b', {}, 'Je suis MJ'), h('span', {}, 'Je ne joue pas : je vois tout et j’anime'))),
+      h('div', { class: 'choix colonne' },
+        ...[['joue', 'Je joue', 'Mon rôle est tiré au sort, comme les autres'], ['mj', 'Je suis MJ', 'Je ne joue pas : je vois tout et j’anime'], ['essai', 'Partie d’essai', 'Seul, avec de faux joueurs : je vois l’écran de chacun et je joue à sa place']]
+          .map(([cle, titre, sous]) => h('button', { type: 'button', class: 'option', 'aria-pressed': String(local.mode === cle), clic: () => { local.mode = cle; const v = nom.value; accueil(); document.getElementById('nom').value = v; } }, h('b', {}, titre), h('span', {}, sous)))),
+      local.mode === 'essai' ? h('div', { class: 'ligne' }, h('span', {}, 'Faux joueurs'), h('span', { class: 'pas' },
+        h('button', { type: 'button', 'aria-label': 'Un faux joueur de moins', clic: () => { local.essaiN = Math.max(6, local.essaiN - 1); const v = nom.value; accueil(); document.getElementById('nom').value = v; } }, '−'),
+        h('output', {}, String(local.essaiN)),
+        h('button', { type: 'button', 'aria-label': 'Un faux joueur de plus', clic: () => { local.essaiN = Math.min(20, local.essaiN + 1); const v = nom.value; accueil(); document.getElementById('nom').value = v; } }, '+'))) : null,
       champNom, h('div', { class: 'pousse' }),
-      bouton('Créer la partie', () => api('/api/creer', { nom: nom.value, mj: local.modeMJ })), bouton('Retour', () => { local.accueil = 'choix'; accueil(); }, true)));
+      bouton('Créer la partie', () => api('/api/creer', { nom: nom.value, mj: local.mode !== 'joue', essai: local.mode === 'essai' ? local.essaiN : 0 })), bouton('Retour', () => { local.accueil = 'choix'; accueil(); }, true)));
     if (local.accueil === 'rejoindre') {
       const code = h('input', { id: 'code', class: 'code', maxlength: 5, autocapitalize: 'characters', autocomplete: 'off', spellcheck: 'false', placeholder: 'TLS42' });
       return afficher(h('section', { class: 'page' }, h('p', { class: 'sur' }, 'Rejoindre'), h('h1', {}, 'Entre le code de la partie'),
@@ -118,6 +122,7 @@
   // ---------- rendu ----------
   function rendre() {
     if (!vue) return;
+    barreEssai();
     if (vue.phase === 'salle') return salle();
     if (vue.phase === 'roles') return vue.estMJ ? rolesMJ() : roles();
     if (vue.phase === 'fugitifs' || vue.phase === 'police') return vue.estMJ ? partieMJ() : partie();
@@ -260,6 +265,19 @@
     if (vue.journal.length) x.push(h('ul', { class: 'liste' }, vue.journal.slice(-3).reverse().map(j => h('li', {}, `M${j.manche} · ${j.texte}`))));
     if (estCreateur()) x.push(forcer());
     return x;
+  }
+
+  // ---------- partie d'essai : voir l'écran de n'importe qui ----------
+  function barreEssai() {
+    let b = document.getElementById('essai');
+    if (!vue.essai) { b?.remove(); document.body.classList.remove('essai-actif'); return; }
+    document.body.classList.add('essai-actif');
+    if (!b) { b = h('div', { id: 'essai', class: 'essai' }); document.body.append(b); }
+    const libelle = j => j.nom + (j.role === 'fugitif' ? ' · fugitif' + (j.libre ? '' : ', arrêté') : j.role === 'policier' ? ' · ' + (j.corrompu ? 'corrompu, ' : '') + equipe(j.equipe)[0] : '');
+    const choix = h('select', { 'aria-label': 'Voir l’écran de' }, h('option', { value: '' }, 'MJ · vue d’ensemble'), vue.essai.joueurs.map(j => h('option', { value: j.id }, libelle(j))));
+    choix.value = vue.essai.comme || '';
+    choix.addEventListener('change', () => envoyer('incarner', { joueur: choix.value || null }));
+    b.replaceChildren(h('span', {}, 'Essai · écran de'), choix);
   }
 
   // ---------- maître du jeu : il voit tout ----------

@@ -87,14 +87,33 @@ function verifierReglages(r, nb) {
 // ---------- salle d'attente ----------
 // mj = true : le créateur est maître du jeu. Il ne reçoit pas de rôle, voit
 // toute la partie et garde les commandes : régler, lancer, forcer la suite.
-export function nouvellePartie(code, id, nom, mj = false) {
-  const p = { code, phase: 'salle', createur: id, mj: null, joueurs: {}, ordre: [], reglages: reglagesParDefaut(0), manche: 0, journal: [] };
+// essai = nombre de faux joueurs, de 6 à 20 : partie d'essai pour un MJ seul,
+// qui peut voir le jeu et jouer à la place de n'importe quel faux joueur.
+const NOMS_ESSAI = ['Léa', 'Hugo', 'Inès', 'Malik', 'Sarah', 'Tom', 'Chloé', 'Yanis', 'Emma', 'Nora', 'Lucas', 'Jade', 'Rémi', 'Zoé', 'Adam', 'Lina', 'Noé', 'Mia', 'Sacha', 'Alba'];
+export function nouvellePartie(code, id, nom, mj = false, essai = 0) {
+  const p = { code, phase: 'salle', createur: id, mj: null, essai: false, joueurs: {}, ordre: [], reglages: reglagesParDefaut(0), manche: 0, journal: [] };
+  if (essai) {
+    exiger(Number.isInteger(essai) && essai >= MIN_JOUEURS && essai <= MAX_JOUEURS, `Une partie d'essai compte de ${MIN_JOUEURS} à ${MAX_JOUEURS} joueurs.`);
+    mj = true;
+  }
   if (mj === true) {
     exiger(typeof id === 'string' && /^[A-Za-z0-9-]{1,40}$/.test(id), 'Joueur inconnu.');
     p.mj = { id, nom: nettoyerNom(nom) };
   } else rejoindre(p, id, nom);
+  if (essai) {
+    p.essai = true;
+    NOMS_ESSAI.filter(n => n.toLowerCase() !== p.mj.nom.toLowerCase()).slice(0, essai).forEach((n, i) => rejoindre(p, 'essai-' + (i + 1), n));
+  }
   return p;
 }
+// en essai, le MJ peut jouer à la place d'un faux joueur
+export function incarnation(p, mjId, joueur) {
+  exiger(p.essai && estMJ(p, mjId), 'Réservé au MJ d’une partie d’essai.');
+  exiger(joueur === null || aJoueur(p, joueur), 'Joueur inconnu.');
+  return joueur;
+}
+// liste pour la barre d'essai : qui est qui
+export const listeEssai = p => p.ordre.map(f => { const j = p.joueurs[f]; return { id: f, nom: j.nom, role: j.role ?? null, equipe: j.equipe ?? null, corrompu: !!j.corrompu, libre: j.libre ?? true }; });
 export const estMJ = (p, id) => !!p.mj && p.mj.id === id;
 export function rejoindre(p, id, nom) {
   exiger(p.phase === 'salle', 'La partie a déjà commencé.');

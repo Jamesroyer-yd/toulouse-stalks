@@ -7,6 +7,9 @@ Jeu de traque sur le réseau Tisséo, de 6 à 20 joueurs, chacun sur son télép
     npm run dev
 Puis ouvrir `http://ADRESSE-DU-PC:8787` sur chaque téléphone du même Wi-Fi.
 
+## Tester seul
+À la création, choisir **Partie d’essai** : la partie se remplit de 6 à 20 faux joueurs. Une barre en haut de l’écran permet de voir l’écran du MJ ou de n’importe quel joueur, et de jouer à sa place. Seul le créateur d’une partie d’essai peut le faire.
+
 ## Mettre en ligne sur Cloudflare
 Le jeu tourne sur l'offre gratuite de Cloudflare Workers : les fichiers de `public/`, plus une salle de jeu par partie dans un Durable Object.
 
