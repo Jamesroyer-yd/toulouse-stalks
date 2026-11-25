@@ -12,6 +12,9 @@
     { "name": "LIMITE_CREATION", "namespace_id": "2001", "simple": { "limit": 20, "period": 60 } },
     { "name": "LIMITE_API", "namespace_id": "2002", "simple": { "limit": 600, "period": 60 } }
   ],
+  // adresse provisoire, neutre : le nom du jeu va sans doute changer
+  "routes": [{ "pattern": "traque.okamimura.com", "custom_domain": true }],
+  // l'adresse en workers.dev reste active en secours
   "workers_dev": true,
   "preview_urls": false
 }

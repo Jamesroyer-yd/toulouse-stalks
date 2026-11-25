@@ -21,6 +21,8 @@ Le jeu tourne sur l'offre gratuite de Cloudflare Workers : les fichiers de `publ
        npx wrangler deploy
 
    À la fin, wrangler affiche l'adresse du jeu : `https://toulouse-stalks.NOM-DU-COMPTE.workers.dev`. C'est cette adresse qu'on donne aux joueurs.
+
+   Adresse provisoire du jeu : https://traque.okamimura.com, déclarée dans `wrangler.jsonc` (routes). L'adresse en workers.dev reste active en secours.
 4. **Plus tard, pour publier une nouvelle version**, refaire seulement `npx wrangler deploy`.
 
 Options :
