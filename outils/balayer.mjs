@@ -7,7 +7,7 @@ for (const nb of Object.keys(base)) {
   const lignes = [];
   for (const traces of [2, 3]) for (const mult of [1, 1.4, 1.7]) for (const frac of [0.25, 0.3, 0.35]) {
     const objets = Math.round(base[nb][0] * mult), objectif = Math.max(4, Math.round(objets * frac));
-    const out = execSync(`node outils/simuler.mjs ${N} public/reseau.json`, { env: { ...process.env, REGLAGES: JSON.stringify({ objets, objectif, traces }), JOUEURS: nb } }).toString();
+    const out = execSync(`node outils/simuler.mjs ${N} public/reseau.json`, { env: { ...process.env, TABLEAU: '1', REGLAGES: JSON.stringify({ objets, objectif, traces }), JOUEURS: nb } }).toString();
     const l = out.split(/\r?\n/).find(x => x.trim().startsWith(nb + ' |')).split('|').map(x => x.trim());
     lignes.push({ traces, objets, objectif, fug: parseInt(l[1]), arr: parseInt(l[2]), temps: parseInt(l[3]), manches: +l[4], pris: +l[6] });
   }

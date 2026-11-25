@@ -6,7 +6,8 @@
     "dev": "wrangler dev --ip 0.0.0.0",
     "test": "node --test test/moteur.test.js",
     "test:serveur": "node test/bout-en-bout.mjs",
-    "reseau": "node outils/extraire-reseau.mjs"
+    "reseau": "node outils/extraire-reseau.mjs",
+    "simuler": "node outils/simuler.mjs"
   },
   "devDependencies": { "wrangler": "^4" }
 }

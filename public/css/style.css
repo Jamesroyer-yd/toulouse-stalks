@@ -8,6 +8,9 @@
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
+/* l'écran prend toute la hauteur du téléphone, pour que les boutons tombent en bas */
+#ecran{min-height:100%;min-height:100dvh;display:flex;flex-direction:column}
+#ecran>.page{flex:1;width:100%}
 body{font:400 15px/1.5 var(--sans);color:var(--txt);background:var(--fond);-webkit-text-size-adjust:100%;overscroll-behavior:none}
 button,input{font:inherit;color:inherit}
 button{cursor:pointer;border:0;background:none}
@@ -108,3 +111,19 @@ h1{font:700 30px/1.18 var(--serif)}
 .nom-ligne{font:700 12px var(--sans);fill:var(--fond);text-anchor:middle}
 /* arrêt bloqué par la Patrouille */
 .bloque{fill:rgba(194,166,229,.16);stroke:var(--violet);stroke-width:3}
+
+/* moins de défilement : tailles qui suivent la hauteur de l'écran */
+.page{gap:clamp(8px,1.9vh,16px);padding-top:calc(clamp(18px,4.5vh,40px) + env(safe-area-inset-top));padding-bottom:calc(clamp(14px,3vh,28px) + env(safe-area-inset-bottom))}
+h1{font-size:clamp(24px,4.3vh,30px)}
+.logo{font-size:clamp(40px,7.5vh,52px)}
+.embleme{width:clamp(80px,15vh,132px);height:clamp(80px,15vh,132px)}
+.embleme svg{width:48%;height:48%}
+.titre-role{font-size:clamp(28px,5.2vh,36px)}
+.intro{font-size:clamp(14px,2.1vh,15px)}
+.bouton{padding:clamp(11px,1.8vh,15px) 20px}
+.carte{padding:clamp(10px,1.6vh,14px) 16px;gap:clamp(5px,1vh,8px)}
+.carte.serree{gap:2px}
+.carte.serree .ligne{font-size:13px;line-height:1.3;padding-block:1px}
+.lien{background:none;border:0;color:var(--citron);font-weight:600;font-size:13px;padding:6px 0;text-decoration:underline;text-underline-offset:3px}
+.centre-texte{align-self:center}
+@media (max-height:700px){.pastille{padding:3px 9px;font-size:11.5px}.pastilles{gap:6px}}

@@ -185,3 +185,38 @@ test('patrouille : impossible de camper sur un arrêt', () => {
   assert.throws(() => M.enqueter(p, flic, ici, reseau), /d’abord changer/);
   assert.throws(() => M.finirTour(p, flic), /d’abord changer/);
 });
+
+// ---------- mode maître du jeu ----------
+function partieMJ(n = 8) {
+  const p = M.nouvellePartie('MJ', 'mj', 'Gérard', true);
+  for (let i = 0; i < n; i++) M.rejoindre(p, 'j' + i, 'Joueur ' + i);
+  return p;
+}
+test('MJ : pas de rôle, mais il règle, lance et force la suite', () => {
+  const p = partieMJ(8);
+  assert.equal(p.ordre.length, 8); assert.equal(p.reglages.fugitifs, 2);
+  M.regler(p, 'mj', { manches: 12 });
+  M.lancer(p, 'mj', reseau, graine(3));
+  assert.equal(p.joueurs.mj, undefined, 'le MJ n’est pas un joueur');
+  p.ordre.forEach(id => M.pret(p, id));
+  assert.equal(p.phase, 'fugitifs');
+  M.forcerSuite(p, 'mj'); assert.equal(p.phase, 'police');
+});
+test('MJ : il voit tout, mais ne peut pas jouer', () => {
+  const p = partieMJ(10); M.lancer(p, 'mj', reseau, graine(5)); p.ordre.forEach(id => M.pret(p, id));
+  const v = M.vue(p, 'mj');
+  assert.equal(v.estMJ, true);
+  assert.ok(v.joueurs.every(j => j.position != null), 'toutes les positions');
+  assert.ok(v.joueurs.some(j => j.corrompu), 'les corrompus');
+  assert.ok(Array.isArray(v.objets));
+  assert.throws(() => M.deplacerFugitif(p, 'mj', 0, reseau));
+  assert.throws(() => M.accuser(p, 'mj', null));
+});
+test('MJ : son prénom est réservé, et un joueur ne voit pas ce qu’il voit', () => {
+  const p = partieMJ(8);
+  assert.throws(() => M.rejoindre(p, 'x', 'gérard'), /déjà pris/);
+  assert.throws(() => M.rejoindre(p, 'mj', 'Autre'), /inconnu/);
+  M.lancer(p, 'mj', reseau, graine(2));
+  const hon = p.ordre.find(f => p.joueurs[f].role === 'policier' && !p.joueurs[f].corrompu);
+  assert.equal(M.vue(p, hon).estMJ, undefined); assert.equal(M.vue(p, hon).mj, 'Gérard');
+});

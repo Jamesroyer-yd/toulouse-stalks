@@ -85,18 +85,24 @@ function verifierReglages(r, nb) {
 }
 
 // ---------- salle d'attente ----------
-export function nouvellePartie(code, id, nom) {
-  const p = { code, phase: 'salle', createur: id, joueurs: {}, ordre: [], reglages: null, manche: 0, journal: [] };
-  rejoindre(p, id, nom);
+// mj = true : le créateur est maître du jeu. Il ne reçoit pas de rôle, voit
+// toute la partie et garde les commandes : régler, lancer, forcer la suite.
+export function nouvellePartie(code, id, nom, mj = false) {
+  const p = { code, phase: 'salle', createur: id, mj: null, joueurs: {}, ordre: [], reglages: reglagesParDefaut(0), manche: 0, journal: [] };
+  if (mj === true) {
+    exiger(typeof id === 'string' && /^[A-Za-z0-9-]{1,40}$/.test(id), 'Joueur inconnu.');
+    p.mj = { id, nom: nettoyerNom(nom) };
+  } else rejoindre(p, id, nom);
   return p;
 }
+export const estMJ = (p, id) => !!p.mj && p.mj.id === id;
 export function rejoindre(p, id, nom) {
   exiger(p.phase === 'salle', 'La partie a déjà commencé.');
   // identifiant fabriqué par le serveur : lettres et chiffres seulement, jamais __proto__
-  exiger(typeof id === 'string' && /^[A-Za-z0-9-]{1,40}$/.test(id) && !Object.hasOwn(p.joueurs, id), 'Joueur inconnu.');
+  exiger(typeof id === 'string' && /^[A-Za-z0-9-]{1,40}$/.test(id) && !Object.hasOwn(p.joueurs, id) && !estMJ(p, id), 'Joueur inconnu.');
   nom = nettoyerNom(nom);
   exiger(p.ordre.length < MAX_JOUEURS, `La partie est pleine : ${MAX_JOUEURS} joueurs au plus.`);
-  exiger(!Object.values(p.joueurs).some(j => j.nom.toLowerCase() === nom.toLowerCase()), 'Ce prénom est déjà pris.');
+  exiger(![...Object.values(p.joueurs), ...(p.mj ? [p.mj] : [])].some(j => j.nom.toLowerCase() === nom.toLowerCase()), 'Ce prénom est déjà pris.');
   p.joueurs[id] = { id, nom };
   p.ordre.push(id);
   p.reglages = reglagesParDefaut(p.ordre.length);
@@ -346,6 +352,7 @@ function resultats(p) {
 // ---------- vue d'un joueur ----------
 // Ce que le joueur a le droit de savoir, rien de plus.
 export function vue(p, id) {
+  if (estMJ(p, id)) return vueMJ(p, id);
   const moi = p.joueurs[id];
   const fin = p.phase === 'fin';
   const voitFugitifs = fin || moi?.role === 'fugitif' || moi?.corrompu;
@@ -358,7 +365,7 @@ export function vue(p, id) {
     if (p.phase === 'roles') o.pret = p.prets.includes(f);
     return o;
   });
-  const v = { code: p.code, phase: p.phase, createur: p.createur, moi: id, reglages: p.reglages, manche: p.manche, joueurs, journal: p.journal };
+  const v = { code: p.code, phase: p.phase, createur: p.createur, mj: p.mj ? p.mj.nom : null, moi: id, reglages: p.reglages, manche: p.manche, joueurs, journal: p.journal };
   if (!moi?.role) return v;
   v.role = { role: moi.role, equipe: moi.equipe ?? null, corrompu: !!moi.corrompu, specialite: moi.role === 'policier' ? specialite(p, moi.equipe) : null };
   if (p.reglages.specialites) v.specialites = [...Array(p.reglages.equipes).keys()].map(e => specialite(p, e));
@@ -371,5 +378,30 @@ export function vue(p, id) {
   if (['fugitifs', 'police'].includes(p.phase)) v.bloques = arretsBloques(p);   // public : la police est visible de tous
   if (p.phase === 'accusation') { v.gagnant = p.gagnant; v.raison = p.raison; v.monVote = id in p.votes ? p.votes[id] : undefined; v.votants = Object.keys(p.votes); }
   if (fin) { v.resultat = p.resultat; v.objets = p.objets; }
+  return v;
+}
+
+// ---------- vue du maître du jeu ----------
+// Il voit tout : rôles, corrompus, positions des fugitifs, objets, enquêtes de
+// chacun, pour arbitrer les annonces faites à voix haute.
+function vueMJ(p, id) {
+  const joueurs = p.ordre.map(f => {
+    const j = p.joueurs[f];
+    const o = { id: f, nom: j.nom, role: j.role ?? null, equipe: j.equipe ?? null, corrompu: !!j.corrompu, position: j.position ?? null };
+    if (j.role === 'fugitif') { o.libre = j.libre; o.objets = j.objets; }
+    if (j.role === 'policier') o.specialite = specialite(p, j.equipe);
+    if (p.phase === 'roles') o.pret = p.prets.includes(f);
+    return o;
+  });
+  const v = { code: p.code, phase: p.phase, createur: p.createur, mj: p.mj.nom, estMJ: true, moi: id, reglages: p.reglages, manche: p.manche, joueurs, journal: p.journal };
+  if (!p.ordre.some(f => p.joueurs[f].role)) return v;
+  if (p.reglages.specialites) v.specialites = [...Array(p.reglages.equipes).keys()].map(e => specialite(p, e));
+  v.objets = p.objets; v.objetsRamasses = objetsEquipe(p);
+  v.enquetes = Object.entries(p.enquetes || {}).flatMap(([f, l]) => l.map(e => ({ ...e, auteur: p.joueurs[f].nom, equipe: p.joueurs[f].equipe }))).filter(e => e.manche >= p.manche - 1);
+  if (p.phase === 'police') { v.equipeEnCours = equipeEnCours(p); v.ordreEquipes = p.ordreEquipes; v.finis = Object.keys(p.tour).filter(f => p.tour[f].fini); }
+  if (p.phase === 'fugitifs') v.ontJoue = Object.keys(p.coups);
+  if (['fugitifs', 'police'].includes(p.phase)) v.bloques = arretsBloques(p);
+  if (p.phase === 'accusation') { v.gagnant = p.gagnant; v.raison = p.raison; v.votants = Object.keys(p.votes); }
+  if (p.phase === 'fin') v.resultat = p.resultat;
   return v;
 }

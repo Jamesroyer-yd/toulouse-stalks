@@ -8,7 +8,7 @@
   const FORMAT_CODE = /^[A-HJ-NP-Z2-9]{5}$/, FORMAT_JETON = /^[0-9a-f]{64}$/;
   const ecran = document.getElementById('ecran'), bandeau = document.getElementById('message');
   let reseau = null, session = null, ws = null, vue = null, jeu = null, essais = 0;
-  const local = { accueil: 'choix', choisi: null, action: 'enqueter', fauxTrace: true };
+  const local = { accueil: 'choix', choisi: null, action: 'enqueter', modeMJ: false, reglages: false };
 
   // ---------- construction sûre ----------
   function h(tag, props, ...enfants) {
@@ -31,7 +31,7 @@
   const SPE = {
     enqueteurs: ['Enquêteurs', 'Tes enquêtes fouillent l’arrêt visé et tous ses voisins d’un coup.'],
     intervention: ['Intervention', 'Tes arrestations couvrent l’arrêt visé et tous ses voisins d’un coup.'],
-    patrouille: ['Patrouille', 'Tu avances de 3 arrêts, et un fugitif ne peut ni traverser ni atteindre ton arrêt.']
+    patrouille: ['Patrouille', 'Tu changes d’arrêt à chaque manche, 3 au plus. L’arrêt où tu arrives est interdit aux fugitifs à leur tour suivant.']
   };
   const ICONES = {
     fugitif: 'M9 4a2 2 0 1 0 4 0a2 2 0 1 0-4 0M7 21l3-6l3 2v4M6 12l4-3l3 1l2 3h3M10 9l-1 5',
@@ -82,8 +82,12 @@
     const nom = h('input', { id: 'nom', maxlength: 20, autocomplete: 'given-name', placeholder: 'Léa', enterkeyhint: 'go' });
     const champNom = h('label', { class: 'champ', for: 'nom' }, h('span', {}, 'Ton prénom'), nom);
     if (local.accueil === 'creer') return afficher(h('section', { class: 'page' }, h('p', { class: 'sur' }, 'Créer'), h('h1', {}, 'Nouvelle partie'),
-      h('p', { class: 'intro' }, 'Tu joues aussi : ton rôle sera tiré au sort comme celui des autres.'), champNom, h('div', { class: 'pousse' }),
-      bouton('Créer la partie', () => api('/api/creer', { nom: nom.value })), bouton('Retour', () => { local.accueil = 'choix'; accueil(); }, true)));
+      h('p', { class: 'intro' }, 'Choisis ta place dans cette partie.'),
+      h('div', { class: 'choix' },
+        h('button', { type: 'button', class: 'option', 'aria-pressed': String(!local.modeMJ), clic: () => { local.modeMJ = false; const v = nom.value; accueil(); document.getElementById('nom').value = v; } }, h('b', {}, 'Je joue'), h('span', {}, 'Mon rôle est tiré au sort, comme les autres')),
+        h('button', { type: 'button', class: 'option', 'aria-pressed': String(local.modeMJ), clic: () => { local.modeMJ = true; const v = nom.value; accueil(); document.getElementById('nom').value = v; } }, h('b', {}, 'Je suis MJ'), h('span', {}, 'Je ne joue pas : je vois tout et j’anime'))),
+      champNom, h('div', { class: 'pousse' }),
+      bouton('Créer la partie', () => api('/api/creer', { nom: nom.value, mj: local.modeMJ })), bouton('Retour', () => { local.accueil = 'choix'; accueil(); }, true)));
     if (local.accueil === 'rejoindre') {
       const code = h('input', { id: 'code', class: 'code', maxlength: 5, autocapitalize: 'characters', autocomplete: 'off', spellcheck: 'false', placeholder: 'TLS42' });
       return afficher(h('section', { class: 'page' }, h('p', { class: 'sur' }, 'Rejoindre'), h('h1', {}, 'Entre le code de la partie'),
@@ -115,9 +119,9 @@
   function rendre() {
     if (!vue) return;
     if (vue.phase === 'salle') return salle();
-    if (vue.phase === 'roles') return roles();
-    if (vue.phase === 'fugitifs' || vue.phase === 'police') return partie();
-    if (vue.phase === 'accusation') return accusation();
+    if (vue.phase === 'roles') return vue.estMJ ? rolesMJ() : roles();
+    if (vue.phase === 'fugitifs' || vue.phase === 'police') return vue.estMJ ? partieMJ() : partie();
+    if (vue.phase === 'accusation') return vue.estMJ ? accusationMJ() : accusation();
     if (vue.phase === 'fin') return fin();
   }
 
@@ -131,13 +135,17 @@
         h('button', { type: 'button', 'aria-label': libelle + ' plus', clic: () => changer(1) }, '+')));
     };
     afficher(h('section', { class: 'page' }, h('p', { class: 'sur' }, 'Partie ' + vue.code), h('h1', {}, 'Salle d’attente'),
-      h('p', { class: 'intro' }, `${n} joueur${n > 1 ? 's' : ''}. Donne le code ${vue.code} aux autres. Les rôles seront tirés au sort au lancement.`),
-      h('div', { class: 'carte' }, h('h2', {}, 'Réglages'), reglage('fugitifs', 'Fugitifs', 1, 6), reglage('equipes', 'Équipes de police', 1, 4),
-        reglage('corrompus', 'Policiers corrompus', 0, 4), reglage('objets', 'Objets cachés', 4, 60), reglage('objectif', 'Objets à ramasser', 1, 60), reglage('manches', 'Manches', 3, 30)),
-      h('div', { class: 'carte' }, h('h2', {}, 'Joueurs'), h('div', { class: 'pastilles' }, vue.joueurs.map(j => pastille(j.nom + (j.id === vue.createur ? ' · créateur' : ''), j.id === vue.moi ? C.citron : C.txt2)))),
+      h('p', { class: 'intro' }, `${n} joueur${n > 1 ? 's' : ''}. Donne le code ${vue.code} aux autres. Les rôles seront tirés au sort au lancement.${vue.estMJ ? ' Tu es MJ : tu ne joues pas.' : ''}`),
+      local.reglages && estCreateur()
+        ? h('div', { class: 'carte' }, h('div', { class: 'ligne' }, h('h2', {}, 'Réglages'), h('button', { type: 'button', class: 'lien', clic: () => { local.reglages = false; salle(); } }, 'Fermer')),
+            reglage('fugitifs', 'Fugitifs', 1, 6), reglage('equipes', 'Équipes de police', 1, 4),
+            reglage('corrompus', 'Policiers corrompus', 0, 4), reglage('objets', 'Objets cachés', 4, 80), reglage('objectif', 'Objets à ramasser', 1, 80), reglage('manches', 'Manches', 3, 30))
+        : h('div', { class: 'carte' }, h('div', { class: 'ligne' }, h('h2', {}, 'Réglages'), estCreateur() ? h('button', { type: 'button', class: 'lien', clic: () => { local.reglages = true; salle(); } }, 'Modifier') : null),
+            h('p', { class: 'petit' }, `${r.fugitifs} fugitif${r.fugitifs > 1 ? 's' : ''} · ${r.equipes} équipe${r.equipes > 1 ? 's' : ''} de police · ${r.corrompus} corrompu${r.corrompus > 1 ? 's' : ''} · ${r.objectif} objets à trouver sur ${r.objets} · ${r.manches} manches`)),
+      h('div', { class: 'carte' }, h('h2', {}, 'Joueurs'), vue.mj ? ligne('Maître du jeu', vue.mj) : null, h('div', { class: 'pastilles' }, vue.joueurs.map(j => pastille(j.nom + (j.id === vue.createur ? ' · créateur' : ''), j.id === vue.moi ? C.citron : C.txt2)))),
       h('div', { class: 'pousse' }),
       estCreateur() ? bouton(n < 6 ? 'Il faut au moins 6 joueurs' : 'Lancer la partie', () => envoyer('lancer'), false, n < 6) : h('p', { class: 'petit centre' }, 'Le créateur lancera la partie.'),
-      bouton('Quitter la salle', () => { if (confirm('Quitter la partie ?')) oublier(); }, true)));
+      h('button', { type: 'button', class: 'lien centre-texte', clic: () => { if (confirm('Quitter la partie ?')) oublier(); } }, 'Quitter la salle')));
   }
 
   function roles() {
@@ -252,6 +260,59 @@
     if (vue.journal.length) x.push(h('ul', { class: 'liste' }, vue.journal.slice(-3).reverse().map(j => h('li', {}, `M${j.manche} · ${j.texte}`))));
     if (estCreateur()) x.push(forcer());
     return x;
+  }
+
+  // ---------- maître du jeu : il voit tout ----------
+  const nomRole = j => j.role === 'fugitif' ? 'Fugitif' : (j.corrompu ? 'Corrompu · ' : '') + 'équipe ' + equipe(j.equipe)[0] + (j.specialite ? ' · ' + SPE[j.specialite][0] : '');
+  function rolesMJ() {
+    const prets = vue.joueurs.filter(j => j.pret).length;
+    afficher(h('section', { class: 'page' }, h('p', { class: 'sur' }, 'Maître du jeu'), h('h1', {}, 'Les rôles sont distribués'),
+      h('p', { class: 'intro' }, 'Toi seul vois cette liste. Attends que tout le monde ait lu son rôle.'),
+      h('div', { class: 'carte serree' }, vue.joueurs.map(j => h('div', { class: 'ligne' }, h('span', {}, (j.pret ? '✓ ' : '') + j.nom), h('span', { couleur: j.corrompu ? C.rouge : null }, nomRole(j))))),
+      h('div', { class: 'pousse' }), h('p', { class: 'petit centre' }, 'Prêts : ' + prets + ' sur ' + vue.joueurs.length), forcer()));
+  }
+  function partieMJ() {
+    if (!jeu) {
+      const conteneur = h('div', { class: 'plan' });
+      const racine = h('div', { class: 'jeu' }, conteneur);
+      afficher(racine);
+      const plan = Plan(conteneur, reseau);
+      plan.surChoix(() => {});
+      jeu = { racine, plan, barre: null, outils: null, panneau: null };
+      plan.toutVoir();
+    }
+    jeu.plan.maj({
+      objets: vue.objets || [], bloques: vue.bloques || [],
+      police: vue.joueurs.filter(j => j.role === 'policier').map(j => ({ arret: j.position, coul: j.corrompu ? C.rouge : equipe(j.equipe)[1], lettre: equipe(j.equipe)[2] })),
+      fugitifs: vue.joueurs.filter(j => j.role === 'fugitif').map(j => ({ arret: j.position, lettre: j.nom[0].toUpperCase(), libre: j.libre })),
+      traces: (vue.enquetes || []).filter(e => e.manche === vue.manche).flatMap(e => (e.traces || (e.trace ? [{ arret: e.arret, manche: e.mancheTrace }] : [])).map(t => ({ arret: t.arret, trace: true, texte: e.auteur + ' · M' + t.manche })))
+    });
+    const tour = vue.phase === 'fugitifs' ? ['Les fugitifs se déplacent', C.citron] : ['Au tour de l’équipe ' + equipe(vue.equipeEnCours)[0], equipe(vue.equipeEnCours)[1]];
+    const barre = h('div', { class: 'barre' }, h('div', {}, h('p', { class: 'sur' }, 'MJ · manche ' + vue.manche + ' / ' + vue.reglages.manches), h('p', { class: 'tour', couleur: tour[1] }, tour[0])),
+      h('span', { class: 'compteur', 'aria-label': 'Objets ramassés' }, vue.objetsRamasses + ' / ' + vue.reglages.objectif));
+    const outils = h('div', { class: 'outils' }, h('button', { type: 'button', 'aria-label': 'Voir tout le réseau', clic: () => jeu.plan.toutVoir() }, '⤢'));
+    // qui doit encore jouer
+    const attente = vue.phase === 'fugitifs'
+      ? vue.joueurs.filter(j => j.role === 'fugitif' && j.libre && !(vue.ontJoue || []).includes(j.id))
+      : vue.joueurs.filter(j => j.role === 'policier' && j.equipe === vue.equipeEnCours && !(vue.finis || []).includes(j.id));
+    const x = [h('h2', {}, attente.length ? 'On attend : ' + attente.map(j => j.nom).join(', ') : 'Tout le monde a joué')];
+    x.push(h('div', { class: 'carte' }, h('h2', {}, 'Fugitifs'), vue.joueurs.filter(j => j.role === 'fugitif').map(j => ligne(j.nom, j.libre ? nomArret(j.position) + ' · ' + j.objets + ' objet' + (j.objets > 1 ? 's' : '') : 'arrêté'))));
+    const enq = (vue.enquetes || []).filter(e => e.manche === vue.manche);
+    if (enq.length) x.push(h('div', { class: 'carte' }, h('h2', {}, 'Vrais résultats d’enquête, pour vérifier les annonces'), h('ul', { class: 'liste' }, enq.slice(-8).reverse().map(e => h('li', {},
+      e.auteur + ', ' + equipe(e.equipe)[0] + ' : ' + (e.traces ? 'autour de ' + nomArret(e.arret) + ', ' + (e.traces.length ? e.traces.map(t => nomArret(t.arret)).join(', ') : 'rien') : nomArret(e.arret) + ', ' + (e.trace ? 'trace' : 'rien')))))));
+    x.push(h('div', { class: 'carte' }, h('h2', {}, 'Corrompus'), vue.joueurs.filter(j => j.corrompu).map(j => ligne(j.nom, 'équipe ' + equipe(j.equipe)[0]))));
+    if (vue.journal.length) x.push(h('ul', { class: 'liste' }, vue.journal.slice(-3).reverse().map(j => h('li', {}, 'M' + j.manche + ' · ' + j.texte))));
+    x.push(forcer());
+    jeu.barre?.remove(); jeu.outils?.remove(); jeu.panneau?.remove();
+    jeu.barre = barre; jeu.outils = outils; jeu.panneau = h('section', { class: 'panneau', 'aria-label': 'Tableau du MJ' }, x);
+    jeu.racine.append(barre, outils, jeu.panneau);
+  }
+  function accusationMJ() {
+    const pol = vue.joueurs.filter(j => j.role === 'policier');
+    afficher(h('section', { class: 'page' }, h('p', { class: 'sur' }, 'Maître du jeu'), h('h1', {}, 'La police vote'), h('p', { class: 'intro' }, vue.raison),
+      h('p', { class: 'petit' }, 'Votes : ' + vue.votants.length + ' sur ' + pol.length),
+      h('div', { class: 'carte' }, h('h2', {}, 'Les corrompus'), vue.joueurs.filter(j => j.corrompu).map(j => ligne(j.nom, 'équipe ' + equipe(j.equipe)[0]))),
+      h('div', { class: 'pousse' }), forcer()));
   }
 
   function accusation() {

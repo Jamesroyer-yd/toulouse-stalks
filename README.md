@@ -37,8 +37,14 @@ Options :
 `npm run reseau` refait `public/reseau.json` à partir des données ouvertes Tisséo, en GTFS sous licence ODbL : métro A et B, tram T1 jusqu'à Guyenne-Berry, Téléo, les Linéo à moins de 4 km du Capitole, et des correspondances à pied de moins de 500 m entre arrêts de lignes différentes. Le centre-ville est agrandi comme sur un plan de métro. `BUS=1` remet les liaisons en bus, désactivées.
 
 ## Simulation
-    node outils/simuler.mjs 300 public/reseau.json
-Joue des centaines de parties avec des robots simples sur le vrai moteur, pour comparer des réglages. La variable REGLAGES force un réglage, par exemple `REGLAGES='{"objets":40,"objectif":10}'`, et JOUEURS fixe le nombre de joueurs.
+L'ordinateur joue des centaines de parties avec des robots simples, sur le vrai moteur, et dit en phrases qui gagne :
+
+    npm run simuler                                   # toutes les tailles, de 6 à 20 joueurs
+    npm run simuler -- --joueurs 14                   # une seule taille
+    npm run simuler -- --joueurs 14 --objectif 9      # tester un autre objectif
+    npm run simuler -- --joueurs 14 --objets 30 --manches 12 --parties 1000
+
+Réglages possibles : `--fugitifs`, `--equipes`, `--corrompus`, `--objets`, `--objectif`, `--manches`, `--specialites 0` pour jouer sans les spécialités, `--parties` pour le nombre de parties, 300 par défaut. `--tableau` affiche les résultats en tableau. Les robots ne bluffent pas et ne se méfient pas : les chiffres servent à comparer des réglages entre eux.
 
 ## Organisation
 - `src/moteur.js` : les règles, des fonctions pures et testées.

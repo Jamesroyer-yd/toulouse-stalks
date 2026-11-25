@@ -5,13 +5,29 @@
 // Les robots sont simples : les chiffres comparent des réglages entre eux,
 // ils ne prédisent pas exactement une partie entre humains.
 //
-// Usage : node outils/simuler.mjs [parties par réglage] [reseau.json ...]
+// Usage simple, depuis le dossier du jeu :
+//   npm run simuler                         toutes les tailles de 6 à 20 joueurs
+//   npm run simuler -- --joueurs 14          une seule taille
+//   npm run simuler -- --joueurs 14 --objectif 9 --objets 30 --manches 15 --parties 1000
+//   npm run simuler -- --joueurs 14 --specialites 0      sans les spécialités
+// Les résultats s'écrivent en phrases. --tableau donne l'ancien tableau.
+// Ancienne forme, toujours acceptée : node outils/simuler.mjs 300 public/reseau.json
 import fs from 'node:fs';
 import * as M from '../src/moteur.js';
 
-const N = Number(process.argv[2]) || 300;
-const fichiers = process.argv.slice(3).length ? process.argv.slice(3) : ['public/reseau.json'];
-const JOUEURS = process.env.JOUEURS ? [Number(process.env.JOUEURS)] : [8, 11, 14, 17, 20];
+// --- lecture des options : --nom valeur ; les autres mots sont l'ancienne forme
+const opts = {}, libres = [];
+for (let i = 2; i < process.argv.length; i++) {
+  const a = process.argv[i];
+  if (a.startsWith('--')) { const v = process.argv[i + 1]; if (v === undefined || v.startsWith('--')) opts[a.slice(2)] = true; else { opts[a.slice(2)] = v; i++; } }
+  else libres.push(a);
+}
+const N = Number(opts.parties || libres[0]) || 300;
+const fichiers = libres.slice(1).length ? libres.slice(1) : ['public/reseau.json'];
+const JOUEURS = opts.joueurs ? [Number(opts.joueurs)] : process.env.JOUEURS ? [Number(process.env.JOUEURS)] : [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+const forces = process.env.REGLAGES ? JSON.parse(process.env.REGLAGES) : {};
+for (const k of ['fugitifs', 'equipes', 'corrompus', 'objets', 'objectif', 'manches', 'traces', 'specialites']) if (opts[k] !== undefined) forces[k] = Number(opts[k]);
+const TABLEAU = opts.tableau || process.env.TABLEAU === '1';
 
 function graine(s) { return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; }; }
 
@@ -20,7 +36,7 @@ function simuler(reseau, nb, rnd) {
   const D = A.map(a => { const d = Array(A.length).fill(99); d[a.id] = 0; let f = [a.id]; while (f.length) { const g = []; for (const x of f) for (const v of A[x].voisins) if (d[v] === 99) { d[v] = d[x] + 1; g.push(v); } f = g; } return d; });
   const p = M.nouvellePartie('SIMUL', 'j0', 'Joueur 0');
   for (let i = 1; i < nb; i++) M.rejoindre(p, 'j' + i, 'Joueur ' + i);
-  if (process.env.REGLAGES) M.regler(p, 'j0', JSON.parse(process.env.REGLAGES));
+  if (Object.keys(forces).length) M.regler(p, 'j0', forces);
   M.lancer(p, 'j0', reseau, rnd);
   p.ordre.forEach(id => M.pret(p, id));
   const pistes = {};   // équipe → [{ arret, manche }] : traces connues de l'équipe
@@ -90,14 +106,31 @@ function simuler(reseau, nb, rnd) {
 
 for (const fichier of fichiers) {
   const reseau = JSON.parse(fs.readFileSync(fichier, 'utf8'));
-  console.log(`\n${fichier} · ${N} parties par ligne`);
-  console.log('joueurs | fugitifs gagnent | police : arrestations | police : au temps | manches moy. | objets moy. / objectif | fugitifs arrêtés moy.');
+  if (TABLEAU) {
+    console.log(`
+${fichier} · ${N} parties par ligne`);
+    console.log('joueurs | fugitifs gagnent | police : arrestations | police : au temps | manches moy. | objets moy. / objectif | fugitifs arrêtés moy.');
+  } else console.log(`
+Simulation : ${N} parties jouées par l'ordinateur pour chaque taille de groupe.${Object.keys(forces).length ? ' Réglages forcés : ' + JSON.stringify(forces) + '.' : ''}
+`);
   for (const nb of JOUEURS) {
     const rnd = graine(1000 + nb);
-    const r = Array.from({ length: N }, () => simuler(reseau, nb, rnd));
-    const pc = x => Math.round(100 * r.filter(x).length / N) + ' %';
+    let r;
+    try { r = Array.from({ length: N }, () => simuler(reseau, nb, rnd)); }
+    catch (e) { console.log(`${nb} joueurs : réglage impossible, ${e.message}`); continue; }
+    const part = x => r.filter(x).length / N;
+    const pc = x => Math.round(100 * part(x)) + ' %';
     const moy = k => (r.reduce((s, x) => s + x[k], 0) / N).toFixed(1);
-    const obj = M.reglagesParDefaut(nb).objectif;
-    console.log(`${String(nb).padStart(7)} | ${pc(x => x.gagnant === 'fugitifs').padStart(16)} | ${pc(x => x.gagnant === 'police' && /arrêtés/.test(x.raison)).padStart(21)} | ${pc(x => x.gagnant === 'police' && /temps/.test(x.raison)).padStart(17)} | ${moy('manche').padStart(12)} | ${(moy('objets') + ' / ' + obj).padStart(22)} | ${moy('arrestations').padStart(21)}`);
+    const reg = { ...M.reglagesParDefaut(nb), ...forces };
+    const fug = part(x => x.gagnant === 'fugitifs'), arr = part(x => x.gagnant === 'police' && /arrêtés/.test(x.raison)), temps = part(x => x.gagnant === 'police' && /temps/.test(x.raison));
+    if (TABLEAU) { console.log(`${String(nb).padStart(7)} | ${pc(x => x.gagnant === 'fugitifs').padStart(16)} | ${pc(x => x.gagnant === 'police' && /arrêtés/.test(x.raison)).padStart(21)} | ${pc(x => x.gagnant === 'police' && /temps/.test(x.raison)).padStart(17)} | ${moy('manche').padStart(12)} | ${(moy('objets') + ' / ' + reg.objectif).padStart(22)} | ${moy('arrestations').padStart(21)}`); continue; }
+    const sur10 = v => Math.round(v * 10);
+    const avis = fug >= 0.6 ? 'les fugitifs gagnent trop souvent : monte l’objectif ou baisse les objets cachés.'
+      : fug <= 0.4 ? 'la police gagne trop souvent : baisse l’objectif ou ajoute des objets cachés.'
+      : 'c’est équilibré.';
+    console.log(`${nb} joueurs, ${reg.fugitifs} fugitif${reg.fugitifs > 1 ? 's' : ''}, objectif ${reg.objectif} objets sur ${reg.objets} :`);
+    console.log(`   sur 10 parties, les fugitifs en gagnent ${sur10(fug)}, la police ${sur10(arr + temps)} : ${sur10(arr)} en arrêtant tout le monde, ${sur10(temps)} parce que le temps est écoulé.`);
+    console.log(`   une partie dure ${moy('manche')} manches en moyenne ; les fugitifs ramassent ${moy('objets')} objets ; ${moy('arrestations')} fugitif arrêté par partie en moyenne.`);
+    console.log(`   → ${avis}`);
   }
 }

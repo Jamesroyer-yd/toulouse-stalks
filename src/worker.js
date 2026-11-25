@@ -45,7 +45,7 @@ export default {
       const corps = await lireCorps(req); if (!corps) return json({ erreur: 'Requête invalide.' }, 400);
       for (let essai = 0; essai < 5; essai++) {
         const code = nouveauCode();
-        const rep = await salle(env, code).fetch('https://partie/creer', { method: 'POST', body: JSON.stringify({ code, nom: corps.nom }) });
+        const rep = await salle(env, code).fetch('https://partie/creer', { method: 'POST', body: JSON.stringify({ code, nom: corps.nom, mj: corps.mj === true }) });
         if (rep.status !== 409) return rep;
       }
       return json({ erreur: 'Réessaie dans un instant.' }, 503);
@@ -77,7 +77,7 @@ export class Partie extends DurableObject {
       if (action === 'creer') {
         if (p) return json({ erreur: 'code pris' }, 409);
         const id = hexa(8), jeton = hexa(32);
-        const partie = M.nouvellePartie(corps.code, id, corps.nom);
+        const partie = M.nouvellePartie(corps.code, id, corps.nom, corps.mj === true);
         await this.ctx.storage.put({ partie, jetons: { [jeton]: id } });
         await this.ctx.storage.setAlarm(Date.now() + DUREE);
         return json({ code: corps.code, jeton });
