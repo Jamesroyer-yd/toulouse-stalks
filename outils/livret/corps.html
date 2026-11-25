@@ -1,0 +1,147 @@
+<body>
+
+<div class="couverture">
+  <div>
+    <p class="sur">Règles du jeu · version 2</p>
+    <h1 class="logo"><span>TOULOUSE</span><b>STALKS</b></h1>
+    <p class="accroche">Une traque cachée sur le vrai réseau Tisséo. Des fugitifs ramassent des objets en métro, en tram et en Linéo ; la police les traque, équipe par équipe ; des traîtres se cachent parmi les policiers.</p>
+  </div>
+  <div class="bas">
+    <div><b>6 à 20</b>joueurs</div>
+    <div><b>170</b>arrêts réels</div>
+    <div><b>1 téléphone</b>par joueur</div>
+    <div><b>À voix haute</b>au bar ou sur Discord</div>
+  </div>
+</div>
+
+<section class="saut">
+  <h2><span class="num">1</span>Le principe</h2>
+  <p>Les <b>fugitifs</b> se déplacent en secret sur le plan du réseau toulousain et ramassent les objets cachés aux arrêts. Les <b>policiers</b>, répartis en équipes qui ont chacune une spécialité, se déplacent à découvert, enquêtent et tentent de les arrêter. Mais dans certaines équipes se cache un <b>policier corrompu</b>, qui aide les fugitifs en secret.</p>
+  <div class="encadre"><b>Les fugitifs gagnent</b> s’ils ramassent assez d’objets. <b>La police gagne</b> si elle arrête tous les fugitifs ou si le temps s’écoule. À la fin, chaque équipe peut démasquer son traître.</div>
+
+  <h3>Ce qu’il faut</h3>
+  <ul>
+    <li>Un téléphone par joueur, connecté à internet.</li>
+    <li>Être ensemble <b>à voix haute</b> : autour d’une table au bar, ou dans un salon vocal Discord. Le jeu ne transmet aucun message entre joueurs : <b>tout se dit de vive voix</b>.</li>
+    <li>Un joueur crée la partie et donne le code à 5 caractères. <b>Le créateur joue aussi</b> : son rôle est tiré au sort. Il peut seulement régler, lancer la partie et forcer la suite si quelqu’un ne répond plus.</li>
+  </ul>
+
+  <h2 style="margin-top:14px"><span class="num">2</span>Les rôles</h2>
+  <p>Les rôles sont tirés au sort au lancement. Chacun découvre le sien sur son téléphone, sans le montrer.</p>
+  <div class="roles">
+    <div class="role" style="--c:#5d6b12"><h3>Fugitif</h3><p>Se déplace en secret et ramasse des objets. Voit où sont les objets, où sont ses coéquipiers et <b>qui sont les corrompus</b>.</p></div>
+    <div class="role" style="--c:#3f7cb8"><h3>Policier</h3><p>Fait partie d’une équipe qui a sa spécialité. Se déplace à découvert, enquête et arrête. Ne sait pas qui est corrompu.</p></div>
+    <div class="role" style="--c:#b3423a"><h3>Corrompu</h3><p>Joue dans une équipe de police mais <b>aide les fugitifs</b>. Voit leur position, ses arrestations sont annulées en secret, et il peut mentir sur ses enquêtes.</p></div>
+  </div>
+  <p>Il y a au plus un corrompu par équipe, et <b>une équipe reste toujours honnête</b>. Les corrompus se connaissent entre eux.</p>
+
+  <h3>Qui voit quoi</h3>
+  <table>
+    <tr><th></th><th class="c">Fugitif</th><th class="c">Policier</th><th class="c">Corrompu</th></tr>
+    <tr><td>Qui sont les fugitifs</td><td class="c oui">oui</td><td class="c oui">oui</td><td class="c oui">oui</td></tr>
+    <tr><td>Où sont les fugitifs</td><td class="c oui">oui</td><td class="c non">non, sauf arrêtés</td><td class="c oui">oui</td></tr>
+    <tr><td>Où sont les policiers</td><td class="c oui">oui</td><td class="c oui">oui</td><td class="c oui">oui</td></tr>
+    <tr><td>Où sont les objets</td><td class="c oui">oui</td><td class="c non">non</td><td class="c non">non</td></tr>
+    <tr><td>Qui est corrompu</td><td class="c oui">oui</td><td class="c non">non</td><td class="c oui">oui</td></tr>
+    <tr><td>Résultat d’une enquête</td><td class="c non">ce qui est annoncé</td><td class="c">le sien, et ce qui est annoncé</td><td class="c">le sien, et ce qui est annoncé</td></tr>
+    <tr><td>Tentatives d’arrestation</td><td class="c oui">oui</td><td class="c oui">oui</td><td class="c oui">oui</td></tr>
+  </table>
+</section>
+
+<section class="saut">
+  <h2><span class="num">3</span>Les spécialités des équipes</h2>
+  <p>Chaque équipe de police a un pouvoir. Aucune ne peut attraper un fugitif seule : <b>il faut coopérer</b>. Les enquêteurs trouvent, la patrouille coupe la fuite, l’intervention arrête.</p>
+  <table>
+    <tr><th>Équipe</th><th>Spécialité</th><th>Pouvoir</th></tr>
+    <tr><td style="color:#3f7cb8"><b>Bleue</b></td><td><b>Enquêteurs</b></td><td>Une enquête fouille l’arrêt visé <b>et tous ses voisins</b> d’un coup.</td></tr>
+    <tr><td style="color:#c56a2c"><b>Orange</b></td><td><b>Intervention</b></td><td>Une arrestation couvre l’arrêt visé <b>et tous ses voisins</b> : tout fugitif dans la zone est arrêté.</td></tr>
+    <tr><td style="color:#7b55b0"><b>Violette</b></td><td><b>Patrouille</b></td><td>Avance de <b>3 arrêts</b> au lieu de 2, et <b>doit changer d’arrêt à chaque manche</b>. L’arrêt où elle vient d’arriver est interdit aux fugitifs à leur tour suivant : ils ne peuvent <b>ni le traverser ni s’y arrêter</b>.</td></tr>
+    <tr><td style="color:#2f8a57"><b>Verte</b></td><td><b>Enquêteurs</b></td><td>Comme la Bleue. Elle n’existe qu’à 19 et 20 joueurs.</td></tr>
+  </table>
+  <p class="petit">À 2 équipes, de 6 à 10 joueurs, il n’y a que les Enquêteurs et l’Intervention.</p>
+  <div class="encadre"><b>Le corrompu change selon son équipe.</b> Chez les Enquêteurs, il ment sur ses enquêtes. Dans l’Intervention, ses arrestations ne prennent jamais. Dans la Patrouille, il se place là où il ne gêne pas les fugitifs. Chaque équipe a donc un traître différent à démasquer.</div>
+
+  <h2 style="margin-top:14px"><span class="num">4</span>Le plateau</h2>
+  <p>Le plateau est le <b>vrai réseau Tisséo</b>, tiré des données ouvertes : métro A et B, tram T1 jusqu’à Guyenne-Berry, téléphérique Téléo, et arrêts Linéo à moins de 4 km du Capitole. Soit <b>170 arrêts</b>, avec un centre-ville agrandi comme sur un plan de métro.</p>
+  <ul>
+    <li>On se déplace <b>le long des lignes</b>, d’un arrêt à l’arrêt voisin. Chaque ligne a sa couleur et son nom.</li>
+    <li>Quelques <b>correspondances à pied</b> relient des arrêts proches de lignes différentes.</li>
+    <li>Sur le téléphone, le plan se déplace au doigt et se zoome en pinçant. <b>Toucher un arrêt affiche son nom</b> et ses lignes.</li>
+  </ul>
+</section>
+
+<section class="saut">
+  <h2><span class="num">5</span>Une manche</h2>
+  <p>Une partie dure <b>15 manches</b> au plus. Chaque manche se joue en deux temps.</p>
+  <ol class="etapes">
+    <li><b>Les fugitifs se déplacent</b>, tous en même temps et en secret. Chacun avance de <b>2 arrêts au plus</b>, ou reste sur place, sans passer par un arrêt tenu par la Patrouille. Il <b>ramasse les objets</b> de tous les arrêts traversés. Son passage laisse une <b>trace</b>.</li>
+    <li><b>Les équipes de police jouent</b>, l’une après l’autre. L’ordre des équipes tourne à chaque manche. Pendant le tour de son équipe, chaque policier :
+      <ul style="margin-top:4px">
+        <li>peut d’abord <b>avancer de 2 arrêts au plus</b>, ou rester sur place ; la Patrouille, elle, <b>doit</b> changer d’arrêt, de 3 au plus ;</li>
+        <li>joue ensuite <b>2 actions</b>, sur son arrêt ou un arrêt voisin : deux fois la même, ou une de chaque.</li>
+      </ul>
+    </li>
+  </ol>
+
+  <h3>Enquêter</h3>
+  <p>Le téléphone du policier, et <b>lui seul</b>, répond : <b>« trace »</b> si un fugitif est passé par là pendant les 2 dernières manches, avec la manche du passage, ou <b>« rien »</b>.</p>
+  <div class="encadre"><b>Puis il l’annonce à voix haute</b> à toute la police. Le jeu ne transmet rien : c’est à chacun de dire ce qu’il a trouvé… et un corrompu peut mentir, se taire ou inventer une fausse piste. Personne ne peut vérifier.</div>
+
+  <h3>Arrêter</h3>
+  <p>Si un fugitif se trouve sur l’arrêt visé, ou sur l’arrêt et ses voisins pour l’Intervention, il est <b>arrêté</b> : il perd tous ses objets et ne joue plus. Chaque tentative s’affiche pour tous, réussie ou non. Une arrestation faite par un corrompu est <b>annulée en secret</b> : tout le monde lit « personne ».</p>
+
+  <h2 style="margin-top:14px"><span class="num">6</span>La fin de la partie</h2>
+  <ul>
+    <li><b>Les fugitifs gagnent</b> dès que leur équipe a ramassé l’<b>objectif d’objets</b>.</li>
+    <li><b>La police gagne</b> si <b>tous les fugitifs sont arrêtés</b>, ou si l’objectif n’est pas atteint après la <b>15ᵉ manche</b>.</li>
+  </ul>
+  <h3>L’accusation</h3>
+  <p>Chaque policier vote pour démasquer <b>un coéquipier</b>, ou <b>personne</b>, en repensant à ses annonces pendant la partie. Le choix majoritaire de l’équipe l’emporte ; en cas d’égalité, elle n’accuse personne. Tous les rôles sont ensuite révélés.</p>
+</section>
+
+<section class="saut">
+  <h3 style="margin-top:0">Les points</h3>
+  <table>
+    <tr><th>Joueur</th><th>Gagne des points</th></tr>
+    <tr><td><b>Fugitif</b></td><td>1 point par objet gardé, plus 3 si les fugitifs gagnent. Un fugitif arrêté a perdu ses objets.</td></tr>
+    <tr><td><b>Corrompu</b></td><td>4 points si les fugitifs gagnent et qu’il n’est pas démasqué, 1 point si la police gagne et qu’il n’est pas démasqué, 0 point s’il est démasqué.</td></tr>
+    <tr><td><b>Policier honnête</b></td><td>Les points de son équipe : 3 par arrestation, plus 2 si la police gagne, plus 2 si l’équipe démasque son corrompu, moins 1 si elle accuse un innocent.</td></tr>
+  </table>
+
+  <h2 style="margin-top:14px"><span class="num">7</span>Cas particuliers</h2>
+  <ul>
+    <li><b>Un joueur ne répond plus</b> : le créateur peut forcer la suite. Un fugitif qui n’a pas joué reste sur place ; un policier qui n’a pas joué perd ses actions.</li>
+    <li><b>Plusieurs pions sur un même arrêt</b> : c’est permis, pour les policiers comme pour les fugitifs.</li>
+    <li><b>Un fugitif peut traverser un arrêt occupé par la police</b>, sauf celui où un patrouilleur vient d’arriver : seule une arrestation capture.</li>
+    <li><b>Pas de camping</b> : un patrouilleur ne peut pas tenir le même arrêt deux manches de suite. Pour garder une sortie fermée, il faut deux patrouilleurs qui se relaient.</li>
+    <li><b>Au début de la partie</b>, les policiers partent de stations de métro et les fugitifs au moins 4 arrêts plus loin. Les objets sont cachés au hasard ailleurs.</li>
+  </ul>
+
+  <h2 style="margin-top:14px"><span class="num">8</span>Les répartitions équilibrées</h2>
+  <p>Le jeu propose ces réglages selon le nombre de joueurs ; le créateur peut les modifier dans la salle d’attente. Partie de <b>15 manches</b> dans tous les cas.</p>
+  <table>
+    <tr><th class="c">Joueurs</th><th class="c">Fugitifs</th><th>Équipes de police</th><th class="c">Corrompus</th><th class="c">Objets cachés</th><th class="c">Objectif</th></tr>
+    <tr><td class="c">6</td><td class="c">1</td><td>2 équipes : 3 et 2</td><td class="c">1</td><td class="c">20</td><td class="c">7</td></tr>
+    <tr><td class="c">7</td><td class="c">1</td><td>2 équipes : 3 et 3</td><td class="c">1</td><td class="c">20</td><td class="c">6</td></tr>
+    <tr><td class="c">8</td><td class="c">2</td><td>2 équipes : 3 et 3</td><td class="c">1</td><td class="c">24</td><td class="c">11</td></tr>
+    <tr><td class="c">9</td><td class="c">2</td><td>2 équipes : 4 et 3</td><td class="c">1</td><td class="c">24</td><td class="c">9</td></tr>
+    <tr><td class="c">10</td><td class="c">2</td><td>2 équipes : 4 et 4</td><td class="c">1</td><td class="c">26</td><td class="c">10</td></tr>
+    <tr><td class="c">11</td><td class="c">2</td><td>3 équipes : 3, 3 et 3</td><td class="c">2</td><td class="c">28</td><td class="c">11</td></tr>
+    <tr><td class="c">12</td><td class="c">2</td><td>3 équipes : 4, 3 et 3</td><td class="c">2</td><td class="c">28</td><td class="c">9</td></tr>
+    <tr><td class="c">13</td><td class="c">2</td><td>3 équipes : 4, 4 et 3</td><td class="c">2</td><td class="c">28</td><td class="c">8</td></tr>
+    <tr class="reference"><td class="c">14</td><td class="c">2</td><td>3 équipes : 4, 4 et 4</td><td class="c">2</td><td class="c">28</td><td class="c">8</td></tr>
+    <tr><td class="c">15</td><td class="c">3</td><td>3 équipes : 4, 4 et 4</td><td class="c">2</td><td class="c">32</td><td class="c">11</td></tr>
+    <tr><td class="c">16</td><td class="c">3</td><td>3 équipes : 5, 4 et 4</td><td class="c">2</td><td class="c">32</td><td class="c">10</td></tr>
+    <tr><td class="c">17</td><td class="c">3</td><td>3 équipes : 5, 5 et 4</td><td class="c">2</td><td class="c">32</td><td class="c">10</td></tr>
+    <tr><td class="c">18</td><td class="c">3</td><td>3 équipes : 5, 5 et 5</td><td class="c">2</td><td class="c">34</td><td class="c">10</td></tr>
+    <tr><td class="c">19</td><td class="c">3</td><td>4 équipes : 4, 4, 4 et 4</td><td class="c">3</td><td class="c">36</td><td class="c">10</td></tr>
+    <tr><td class="c">20</td><td class="c">3</td><td>4 équipes : 5, 4, 4 et 4</td><td class="c">3</td><td class="c">36</td><td class="c">10</td></tr>
+  </table>
+  <p class="petit">La ligne surlignée, 14 joueurs, reprend la composition de l’épreuve télévisée qui a inspiré le jeu.</p>
+  <div class="encadre"><b>Comment ces chiffres ont été choisis.</b> L’ordinateur a joué des milliers de parties pour chaque taille de groupe. L’objectif d’objets a été réglé pour que chaque camp gagne environ une partie sur deux, et que la police gagne aussi par arrestation, pas seulement au temps. Ces équilibres restent à confirmer en jouant entre amis.</div>
+
+  <footer class="source">Plateau tiré des données ouvertes Tisséo, au format GTFS, sous licence ODbL, publiées sur data.toulouse-metropole.fr. Toulouse Stalks est un jeu indépendant, sans lien avec Tisséo.</footer>
+</section>
+
+</body>
+</html>

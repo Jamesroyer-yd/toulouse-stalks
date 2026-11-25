@@ -1,0 +1,110 @@
+/* Toulouse Stalks · thème sombre repris d'Okamimura */
+:root{
+  --fond:#0e0e10; --surface:#18181b; --haut:#222228; --bord:#3a3252; --plan:#141418;
+  --txt:#E6E9EF; --txt2:#9AA5B8; --txt3:#8B94A8; --citron:#D1EE59;
+  --bleu:#80B4E3; --orange:#FFB98A; --violet:#C2A6E5; --vert:#8FD6A8; --rouge:#FF9C92;
+  --serif:"Shippori Mincho",serif; --sans:"Inter Tight",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font:400 15px/1.5 var(--sans);color:var(--txt);background:var(--fond);-webkit-text-size-adjust:100%;overscroll-behavior:none}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none}
+:focus-visible{outline:2px solid var(--citron);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* écrans en colonne */
+.page{min-height:100%;display:flex;flex-direction:column;gap:16px;max-width:480px;margin:0 auto;
+  padding:calc(40px + env(safe-area-inset-top)) 20px calc(28px + env(safe-area-inset-bottom));
+  background:linear-gradient(180deg,#1f2117 0,var(--fond) 45%)}
+.centre{align-items:center;text-align:center}
+.centre>.carte,.centre>.bouton,.centre>.pastilles{align-self:stretch}
+.centre>.carte{text-align:left}
+.centre>.pastilles{justify-content:center}
+.pousse{flex:1}
+.sur{font-weight:600;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--citron)}
+h1{font:700 30px/1.18 var(--serif)}
+.logo{font:800 52px/1 var(--serif);letter-spacing:.06em}
+.logo span{display:block;color:var(--citron)}
+.logo b{display:block;font-weight:800;letter-spacing:.24em}
+.intro{color:var(--txt2)}
+.petit{font-size:12px;color:var(--txt3)}
+
+.bouton{display:block;width:100%;padding:15px 20px;border-radius:12px;background:var(--citron);color:var(--fond);font-weight:600;text-align:center}
+.bouton.second{background:var(--surface);color:var(--txt);border:1px solid var(--bord)}
+.bouton:disabled{opacity:.45;cursor:not-allowed}
+.champ{display:grid;gap:4px;padding:12px 14px;border-radius:12px;background:var(--haut);border:1px solid var(--bord)}
+.champ span{font-size:12px;color:var(--txt3)}
+.champ input{background:none;border:0;font-size:17px;font-weight:500;outline:none;width:100%}
+.champ:focus-within{border-color:var(--citron)}
+.champ input.code{font:700 28px var(--serif);letter-spacing:.3em;text-transform:uppercase}
+
+.carte{display:grid;gap:8px;padding:14px 16px;border-radius:12px;background:var(--haut);border:1px solid var(--bord)}
+.carte h2{font-size:14px;font-weight:600}
+.ligne{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:14px}
+.ligne>:first-child{color:var(--txt2)}
+.ligne>:last-child{font-weight:600;text-align:right}
+.pastilles{display:flex;flex-wrap:wrap;gap:8px}
+.pastille{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600;
+  color:var(--c,var(--txt2));background:color-mix(in srgb,var(--c,var(--txt2)) 14%,transparent);border:1px solid color-mix(in srgb,var(--c,var(--txt2)) 60%,transparent)}
+.pas{display:flex;align-items:center;gap:10px}
+.pas button{width:34px;height:34px;border-radius:10px;background:var(--surface);border:1px solid var(--bord);font-weight:700}
+.pas output{min-width:26px;text-align:center;font-weight:600}
+
+/* rôle */
+.embleme{width:132px;height:132px;border-radius:50%;display:grid;place-items:center;margin:0 auto;
+  background:color-mix(in srgb,var(--c) 12%,transparent);border:2px solid color-mix(in srgb,var(--c) 70%,transparent);color:var(--c)}
+.embleme svg{width:64px;height:64px}
+.titre-role{font:800 36px var(--serif);color:var(--c)}
+
+/* jeu : plan plein écran */
+.jeu{position:fixed;inset:0;background:var(--plan);overflow:hidden}
+.plan{position:absolute;inset:0;touch-action:none;user-select:none;-webkit-user-select:none}
+.plan svg{width:100%;height:100%;display:block}
+.barre{position:absolute;top:0;left:0;right:0;padding:calc(14px + env(safe-area-inset-top)) 20px 40px;display:flex;justify-content:space-between;align-items:flex-start;
+  background:linear-gradient(180deg,rgba(14,14,16,.96),rgba(14,14,16,0));pointer-events:none}
+.barre>*{pointer-events:auto}
+.barre .tour{font-size:13px;font-weight:500;color:var(--c,var(--txt2))}
+.outils{position:absolute;right:16px;top:calc(84px + env(safe-area-inset-top));display:grid;gap:8px}
+.outils button,.compteur{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--haut);border:1px solid var(--bord)}
+.compteur{width:auto;height:auto;padding:6px 12px;border-radius:999px;font-weight:600}
+.panneau{position:absolute;left:0;right:0;bottom:0;max-height:58%;overflow:auto;display:grid;gap:10px;
+  padding:10px 20px calc(24px + env(safe-area-inset-bottom));background:var(--surface);border:1px solid var(--bord);border-bottom:0;border-radius:22px 22px 0 0}
+.panneau::before{content:"";width:40px;height:4px;border-radius:2px;background:var(--bord);justify-self:center}
+.panneau h2{font-size:16px;font-weight:600}
+.choix{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.option{display:grid;gap:2px;padding:10px 12px;border-radius:10px;text-align:left;background:var(--haut);border:1px solid var(--bord)}
+.option b{font-size:14px}
+.option span{font-size:11px;color:var(--txt2)}
+.option[aria-pressed=true]{border-color:var(--c,var(--citron));background:color-mix(in srgb,var(--c,var(--citron)) 12%,transparent);color:var(--c,var(--citron))}
+.liste{display:grid;gap:4px;font-size:12px;color:var(--txt2)}
+.liste li{list-style:none}
+
+/* plan : éléments SVG */
+.arret-cible{fill:transparent;cursor:pointer}
+.portee{fill:rgba(209,238,89,.16);stroke:var(--citron);stroke-width:2;stroke-dasharray:5 4}
+.choisi{fill:rgba(209,238,89,.35);stroke:#fff;stroke-width:2.5}
+.etiquette{font:500 13px var(--sans);fill:#C9CFDB;paint-order:stroke;stroke:var(--plan);stroke-width:4px}
+.etiquette.forte{font-weight:600;font-size:15px}
+.etiquette.faible{fill:#8B94A8;font-size:11px}
+.texte-trace,.texte-rien{font:600 11px var(--sans);fill:var(--fond)}
+.texte-rien{fill:var(--txt)}
+.jeton text{font:700 13px var(--sans);fill:var(--fond);text-anchor:middle;dominant-baseline:central}
+
+.message{position:fixed;left:16px;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:9;padding:12px 16px;border-radius:12px;
+  background:var(--haut);border:1px solid var(--rouge);color:var(--txt);font-size:14px}
+@media (prefers-reduced-motion:no-preference){.bouton,.option{transition:transform .12s}.bouton:active{transform:scale(.98)}}
+/* nom de l'arrêt touché */
+.bulle-arret{position:absolute;transform:translate(-50%,calc(-100% - 22px));display:grid;gap:1px;padding:7px 12px;border-radius:10px;pointer-events:none;
+  background:var(--haut);border:1px solid var(--bord);box-shadow:0 6px 18px rgba(0,0,0,.45);white-space:nowrap;text-align:center}
+.bulle-arret b{font-size:14px;font-weight:600}
+.bulle-arret span{font-size:11px;color:var(--txt2)}
+.bulle-arret::after{content:"";position:absolute;left:50%;bottom:-6px;width:10px;height:10px;margin-left:-5px;transform:rotate(45deg);background:var(--haut);border-right:1px solid var(--bord);border-bottom:1px solid var(--bord)}
+/* plan lisible : petits noms visibles seulement de près, étiquettes de lignes */
+.etiquette.petite{font:500 12px var(--sans);fill:#A9B2C3;display:none}
+.proche .etiquette.petite{display:inline}
+.etiquette.forte{font:600 15px var(--sans);fill:#EEF0F4}
+.nom-ligne{font:700 12px var(--sans);fill:var(--fond);text-anchor:middle}
+/* arrêt bloqué par la Patrouille */
+.bloque{fill:rgba(194,166,229,.16);stroke:var(--violet);stroke-width:3}
