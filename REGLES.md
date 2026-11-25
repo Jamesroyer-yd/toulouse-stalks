@@ -40,27 +40,27 @@ Le jeu n'a ni bouton de partage ni fausse piste : tout se dit à voix haute.
 Le créateur peut **forcer la suite** si un joueur ne répond plus.
 
 ## Le plateau
-170 arrêts réels : métro A et B, tram T1 jusqu'à Guyenne-Berry, Téléo, et arrêts Linéo à moins de 4 km du Capitole. S'y ajoutent des correspondances à pied de moins de 500 m et quelques liaisons en bus entre arrêts du plan. Le centre-ville est agrandi, comme sur un plan de métro.
+170 arrêts réels : métro A et B, tram T1 jusqu'à Guyenne-Berry, Téléo, et arrêts Linéo à moins de 4 km du Capitole. On ne se déplace que le long des lignes. Le centre-ville est agrandi, comme sur un plan de métro, et les arrêts trop proches sont écartés pour rester lisibles.
 
 ## Répartitions équilibrées
 Proposées par défaut dans la salle d'attente, et modifiables par le créateur. Elles sont définies dans `EQUILIBRES`, dans src/moteur.js, et calées par simulation avec outils/simuler.mjs : environ une victoire sur deux pour chaque camp.
 
 | Joueurs | Fugitifs | Équipes de police | Corrompus | Objets cachés | Objectif |
 |---|---|---|---|---|---|
-| 6 | 1 | 3 et 2 | 1 | 20 | 7 |
+| 6 | 1 | 3 et 2 | 1 | 20 | 6 |
 | 7 | 1 | 3 et 3 | 1 | 20 | 6 |
-| 8 | 2 | 3 et 3 | 1 | 24 | 11 |
+| 8 | 2 | 3 et 3 | 1 | 24 | 10 |
 | 9 | 2 | 4 et 3 | 1 | 24 | 9 |
-| 10 | 2 | 4 et 4 | 1 | 26 | 10 |
-| 11 | 2 | 3, 3 et 3 | 2 | 28 | 11 |
+| 10 | 2 | 4 et 4 | 1 | 26 | 8 |
+| 11 | 2 | 3, 3 et 3 | 2 | 28 | 10 |
 | 12 | 2 | 4, 3 et 3 | 2 | 28 | 9 |
 | 13 | 2 | 4, 4 et 3 | 2 | 28 | 8 |
-| 14 | 2 | 4, 4 et 4 | 2 | 28 | 8 |
+| 14 | 2 | 4, 4 et 4 | 2 | 28 | 7 |
 | 15 | 3 | 4, 4 et 4 | 2 | 32 | 11 |
 | 16 | 3 | 5, 4 et 4 | 2 | 32 | 10 |
-| 17 | 3 | 5, 5 et 4 | 2 | 32 | 10 |
-| 18 | 3 | 5, 5 et 5 | 2 | 34 | 10 |
+| 17 | 3 | 5, 5 et 4 | 2 | 32 | 9 |
+| 18 | 3 | 5, 5 et 5 | 2 | 34 | 9 |
 | 19 | 3 | 4, 4, 4 et 4 | 3 | 36 | 10 |
-| 20 | 3 | 5, 4, 4 et 4 | 3 | 36 | 10 |
+| 20 | 3 | 5, 4, 4 et 4 | 3 | 36 | 9 |
 
 Toujours 15 manches. La ligne à 14 joueurs reprend la composition de l'émission. Ces équilibres restent à confirmer en jouant entre humains.

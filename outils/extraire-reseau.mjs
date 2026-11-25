@@ -18,7 +18,7 @@ const GTFS = path.join(ICI, 'gtfs');
 const SORTIE = path.join(ICI, '..', 'public', 'reseau.json');
 const URL_GTFS = 'https://data.toulouse-metropole.fr/api/explore/v2.1/catalog/datasets/tisseo-gtfs/files/fc1dda89077cf37e4f7521760e0ef4e9';
 const RAYON_KM = 4;
-const PX_PAR_KM = 190;
+const PX_PAR_KM = 210;
 const MARGE = 60;
 
 // ---------- téléchargement ----------
@@ -76,6 +76,19 @@ for (const [n, s] of Object.entries(lignes)) {
 const capitole = Object.values(zones).find(z => z.nom === 'Capitole');
 const km = z => { const k = Math.PI / 180; return [(z.lon - capitole.lon) * Math.cos(capitole.lat * k) * 111.32, -(z.lat - capitole.lat) * 110.57]; };
 const lourd = new Set(['A', 'B', 'T1', 'TELEO'].flatMap(n => ordre[n]));
+// Prolongements hors du rayon : la L5 rejoint vraiment l'Oncopole, terminus de
+// Téléo, qui sinon restait en cul-de-sac. On garde ses arrêts réels jusque-là.
+const PROLONGEMENTS = [['L5', 'Gallieni', 'Oncopole - Lise Enjalbert']];
+for (const [n, de, a] of PROLONGEMENTS) {
+  const i = ordre[n].findIndex(z => zones[z].nom === de), j = ordre[n].findIndex(z => zones[z].nom === a);
+  if (i < 0 || j < 0) throw new Error(`Prolongement ${n} introuvable : ${de} → ${a}`);
+  for (const z of ordre[n].slice(Math.min(i, j), Math.max(i, j) + 1)) lourd.add(z);
+}
+// Oncopole Courrière est à deux pas de l'Oncopole : il faisait un crochet
+// trompeur juste avant le terminus, on le retire.
+const RETIRES = new Set(Object.keys(zones).filter(z => zones[z].nom === 'Oncopole Courrière'));
+for (const n of Object.keys(ordre)) ordre[n] = ordre[n].filter(z => !RETIRES.has(z));
+for (const z of RETIRES) lourd.delete(z);
 // Le T1 est coupé après Guyenne-Berry : vers l'aéroport, 10 arrêts en impasse
 // qui étiraient le plan sans rien apporter au jeu.
 const COUPE_T1 = 'Guyenne-Berry';
@@ -101,6 +114,18 @@ const ECARTEMENT = 0.7;
 const brut = ids.map(z => km(zones[z]));
 const R = Math.max(...brut.map(p => Math.hypot(...p)));
 const pos = brut.map(([x, y]) => { const d = Math.hypot(x, y); if (!d) return [0, 0]; const d2 = R * Math.pow(d / R, ECARTEMENT); return [x / d * d2, y / d * d2]; });
+// Écartement minimal : deux arrêts trop proches sont repoussés l'un de l'autre,
+// petit à petit, pour que chaque arrêt et sa ligne restent lisibles.
+const ECART_MIN = 0.3;                 // km sur le plan, soit 0,3 × PX_PAR_KM pixels
+for (let tour = 0; tour < 300; tour++) {
+  let bouge = false;
+  for (let i = 0; i < pos.length; i++) for (let j = i + 1; j < pos.length; j++) {
+    const dx = pos[j][0] - pos[i][0], dy = pos[j][1] - pos[i][1], d = Math.hypot(dx, dy) || 1e-6;
+    if (d >= ECART_MIN) continue;
+    const k = (ECART_MIN - d) / d * 0.5 * 0.5; pos[i][0] -= dx * k; pos[i][1] -= dy * k; pos[j][0] += dx * k; pos[j][1] += dy * k; bouge = true;
+  }
+  if (!bouge) break;
+}
 const minX = Math.min(...pos.map(p => p[0])), minY = Math.min(...pos.map(p => p[1]));
 const maxX = Math.max(...pos.map(p => p[0])), maxY = Math.max(...pos.map(p => p[1]));
 const indice = Object.fromEntries(ids.map((z, i) => [z, i]));
@@ -131,7 +156,12 @@ for (let a = 0; a < ids.length; a++) for (let b = a + 1; b < ids.length; b++) {
   const m = metres(zones[ids[a]], zones[ids[b]]);
   if (m <= MARCHE_MAX) marches.set(a + '-' + b, [a, b, m]);
 }
-for (const [a, b] of marches.values()) { voisins[a].add(b); voisins[b].add(a); }
+// Désactivées par défaut : leurs traits gris croisaient les lignes et rendaient
+// les directions trompeuses. On ne se déplace plus que le long des lignes.
+// MARCHE=1 pour les remettre.
+const AVEC_MARCHE = process.env.MARCHE === '1';
+if (AVEC_MARCHE) for (const [a, b] of marches.values()) { voisins[a].add(b); voisins[b].add(a); }
+else marches.clear();
 
 // ---------- liaisons en bus ----------
 // Un bus qui dessert à la suite deux arrêts gardés, à moins de BUS_MAX mètres

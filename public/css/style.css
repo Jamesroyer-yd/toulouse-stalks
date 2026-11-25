@@ -136,3 +136,16 @@ h1{font-size:clamp(24px,4.3vh,30px)}
 .essai select{flex:1;min-width:0;padding:6px 8px;border-radius:8px;border:1px solid var(--bord);background:var(--haut);color:var(--txt);font:500 13px var(--sans)}
 body.essai-actif #ecran>.page{padding-top:calc(clamp(18px,4.5vh,40px) + 44px + env(safe-area-inset-top))}
 body.essai-actif .jeu{top:44px}
+
+/* résultats d'enquête bien visibles */
+.texte-trace{font:700 14px var(--sans);fill:var(--fond);text-anchor:middle}
+.anneau-trace{fill:rgba(255,185,138,.28);stroke:var(--orange);stroke-width:3}
+.fouille{fill:none;stroke:#8B94A8;stroke-width:2;stroke-dasharray:3 4}
+.liste li.res-trace{color:var(--orange);font-weight:700}
+.voile-resultat{position:absolute;inset:0;z-index:5;display:grid;place-items:center;padding:20px;background:rgba(14,14,16,.72)}
+.carte-resultat{width:min(100%,380px);display:grid;gap:12px;text-align:center;padding:24px 20px;border-radius:18px;background:var(--surface);border:2px solid var(--bord)}
+.carte-resultat.oui{border-color:var(--orange)}
+.titre-resultat{font:800 clamp(30px,6vh,40px) var(--serif)}
+.carte-resultat.oui .titre-resultat{color:var(--orange)}
+.carte-resultat.non .titre-resultat{color:var(--txt2)}
+.consigne{font-size:13px;font-weight:600;color:var(--citron)}

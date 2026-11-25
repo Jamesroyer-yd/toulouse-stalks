@@ -58,11 +58,11 @@ const distances = (reseau, depart) => {
 // sans corrompu.
 // joueurs : [fugitifs, équipes, corrompus, objets, objectif]
 export const EQUILIBRES = {
-  6: [1, 2, 1, 20, 7], 7: [1, 2, 1, 20, 6],
-  8: [2, 2, 1, 24, 11], 9: [2, 2, 1, 24, 9], 10: [2, 2, 1, 26, 10],
-  11: [2, 3, 2, 28, 11], 12: [2, 3, 2, 28, 9], 13: [2, 3, 2, 28, 8], 14: [2, 3, 2, 28, 8],
-  15: [3, 3, 2, 32, 11], 16: [3, 3, 2, 32, 10], 17: [3, 3, 2, 32, 10], 18: [3, 3, 2, 34, 10],
-  19: [3, 4, 3, 36, 10], 20: [3, 4, 3, 36, 10]
+  6: [1, 2, 1, 20, 6], 7: [1, 2, 1, 20, 6],
+  8: [2, 2, 1, 24, 10], 9: [2, 2, 1, 24, 9], 10: [2, 2, 1, 26, 8],
+  11: [2, 3, 2, 28, 10], 12: [2, 3, 2, 28, 9], 13: [2, 3, 2, 28, 8], 14: [2, 3, 2, 28, 7],
+  15: [3, 3, 2, 32, 11], 16: [3, 3, 2, 32, 10], 17: [3, 3, 2, 32, 9], 18: [3, 3, 2, 34, 9],
+  19: [3, 4, 3, 36, 10], 20: [3, 4, 3, 36, 9]
 };
 export function reglagesParDefaut(nb) {
   if (EQUILIBRES[nb]) { const [fugitifs, equipes, corrompus, objets, objectif] = EQUILIBRES[nb]; return { fugitifs, equipes, corrompus, objets, objectif, manches: 15, traces: MEMOIRE_TRACES, specialites: 1 }; }

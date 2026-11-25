@@ -37,7 +37,7 @@ Options :
     npm run test:serveur     # bout en bout, serveur local lancé sur le port 8788
 
 ## Plateau
-`npm run reseau` refait `public/reseau.json` à partir des données ouvertes Tisséo, en GTFS sous licence ODbL : métro A et B, tram T1 jusqu'à Guyenne-Berry, Téléo, les Linéo à moins de 4 km du Capitole, et des correspondances à pied de moins de 500 m entre arrêts de lignes différentes. Le centre-ville est agrandi comme sur un plan de métro. `BUS=1` remet les liaisons en bus, désactivées.
+`npm run reseau` refait `public/reseau.json` à partir des données ouvertes Tisséo, en GTFS sous licence ODbL : métro A et B, tram T1 jusqu'à Guyenne-Berry, Téléo, les Linéo à moins de 4 km du Capitole, et la L5 prolongée jusqu’à l’Oncopole, terminus de Téléo. Le centre-ville est agrandi comme sur un plan de métro et les arrêts trop proches sont écartés. `MARCHE=1` remet les correspondances à pied et `BUS=1` les liaisons en bus, toutes deux désactivées.
 
 ## Simulation
 L'ordinateur joue des centaines de parties avec des robots simples, sur le vrai moteur, et dit en phrases qui gagne :

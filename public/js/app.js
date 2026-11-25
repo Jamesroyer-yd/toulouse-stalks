@@ -66,8 +66,9 @@
     ws.onopen = () => { essais = 0; ws.send(JSON.stringify({ type: 'auth', jeton: session.jeton })); };
     ws.onmessage = e => {
       let m; try { m = JSON.parse(e.data); } catch { return; }
-      if (m.type === 'vue') { if (vue && m.vue.moi !== vue.moi) { jeu = null; local.choisi = null; } vue = m.vue; rendre(); }
+      if (m.type === 'vue') { if (vue && m.vue.moi !== vue.moi) { jeu = null; local.choisi = null; local.resultat = null; } vue = m.vue; rendre(); }
       else if (m.type === 'erreur') message(m.message);
+      else if (m.type === 'retour' && m.action === 'enqueter') { local.resultat = m.resultat; rendre(); }
       else if (m.type === 'retour' && m.action === 'arreter') message(m.resultat.reussie ? 'Arrestation réussie !' : 'Personne à arrêter ici.');
     };
     ws.onclose = e => {
@@ -140,14 +141,20 @@
         h('button', { type: 'button', 'aria-label': libelle + ' plus', clic: () => changer(1) }, '+')));
     };
     afficher(h('section', { class: 'page' }, h('p', { class: 'sur' }, 'Partie ' + vue.code), h('h1', {}, 'Salle d’attente'),
-      h('p', { class: 'intro' }, `${n} joueur${n > 1 ? 's' : ''}. Donne le code ${vue.code} aux autres. Les rôles seront tirés au sort au lancement.${vue.estMJ ? ' Tu es MJ : tu ne joues pas.' : ''}`),
+      h('p', { class: 'intro' }, `Donne le code ${vue.code} aux autres. Les rôles seront tirés au sort au lancement.`),
       local.reglages && estCreateur()
         ? h('div', { class: 'carte' }, h('div', { class: 'ligne' }, h('h2', {}, 'Réglages'), h('button', { type: 'button', class: 'lien', clic: () => { local.reglages = false; salle(); } }, 'Fermer')),
             reglage('fugitifs', 'Fugitifs', 1, 6), reglage('equipes', 'Équipes de police', 1, 4),
             reglage('corrompus', 'Policiers corrompus', 0, 4), reglage('objets', 'Objets cachés', 4, 80), reglage('objectif', 'Objets à ramasser', 1, 80), reglage('manches', 'Manches', 3, 30))
         : h('div', { class: 'carte' }, h('div', { class: 'ligne' }, h('h2', {}, 'Réglages'), estCreateur() ? h('button', { type: 'button', class: 'lien', clic: () => { local.reglages = true; salle(); } }, 'Modifier') : null),
             h('p', { class: 'petit' }, `${r.fugitifs} fugitif${r.fugitifs > 1 ? 's' : ''} · ${r.equipes} équipe${r.equipes > 1 ? 's' : ''} de police · ${r.corrompus} corrompu${r.corrompus > 1 ? 's' : ''} · ${r.objectif} objets à trouver sur ${r.objets} · ${r.manches} manches`)),
-      h('div', { class: 'carte' }, h('h2', {}, 'Joueurs'), vue.mj ? ligne('Maître du jeu', vue.mj) : null, h('div', { class: 'pastilles' }, vue.joueurs.map(j => pastille(j.nom + (j.id === vue.createur ? ' · créateur' : ''), j.id === vue.moi ? C.citron : C.txt2)))),
+      // le MJ à part, puis les joueurs avec leur nombre et ce qu'il manque pour lancer
+      vue.mj ? h('div', { class: 'carte' }, h('div', { class: 'ligne' }, h('h2', {}, 'Maître du jeu'), pastille(vue.mj + (vue.estMJ ? ' · toi' : ''), C.citron)),
+        h('p', { class: 'petit' }, 'Ne joue pas : voit toute la partie et l’anime.')) : null,
+      h('div', { class: 'carte' }, h('h2', {}, `Joueurs · ${n}`),
+        n ? h('div', { class: 'pastilles' }, vue.joueurs.map(j => pastille(j.nom + (j.id === vue.moi ? ' · toi' : j.id === vue.createur ? ' · créateur' : ''), j.id === vue.moi ? C.citron : C.txt2)))
+          : h('p', { class: 'petit' }, 'Personne pour l’instant. Donne le code ' + vue.code + '.'),
+        n < 6 ? h('p', { class: 'petit' }, `Il en faut au moins 6 pour lancer : encore ${6 - n}.`) : null),
       h('div', { class: 'pousse' }),
       estCreateur() ? bouton(n < 6 ? 'Il faut au moins 6 joueurs' : 'Lancer la partie', () => envoyer('lancer'), false, n < 6) : h('p', { class: 'petit centre' }, 'Le créateur lancera la partie.'),
       h('button', { type: 'button', class: 'lien centre-texte', clic: () => { if (confirm('Quitter la partie ?')) oublier(); } }, 'Quitter la salle')));
@@ -208,8 +215,8 @@
       portee: cercles, choisi: local.choisi, objets: vue.objets || [], bloques: vue.bloques || [],
       police: vue.joueurs.filter(j => j.role === 'policier' && j.position != null).map(j => ({ arret: j.position, coul: equipe(j.equipe)[1], lettre: equipe(j.equipe)[2] })),
       fugitifs: vue.joueurs.filter(j => j.role === 'fugitif' && j.position != null).map(j => ({ arret: j.position, lettre: j.nom[0].toUpperCase(), moi: j.id === vue.moi, libre: j.libre })),
-      traces: enquetes.flatMap(e => e.traces ? (e.traces.length ? e.traces.map(t => ({ arret: t.arret, trace: true, texte: `Trace · manche ${t.manche}` })) : [{ arret: e.arret, trace: false, texte: 'Rien autour' }])
-        : [{ arret: e.arret, trace: e.trace, texte: e.trace ? `Trace · manche ${e.mancheTrace}` : 'Rien' }])
+      traces: enquetes.flatMap(e => (e.traces || (e.trace ? [{ arret: e.arret, manche: e.mancheTrace }] : [])).map(t => ({ arret: t.arret, trace: true, texte: 'Trace · M' + t.manche }))),
+      fouilles: enquetes.flatMap(e => (e.zone || [e.arret]).filter(a => !(e.traces || (e.trace ? [{ arret: e.arret }] : [])).some(t => t.arret === a)))
     });
 
     // barre du haut
@@ -222,6 +229,24 @@
     jeu.barre?.remove(); jeu.outils?.remove(); jeu.panneau?.remove();
     jeu.barre = barre; jeu.outils = outils; jeu.panneau = h('section', { class: 'panneau', 'aria-label': 'Actions' }, panneau(monTourFugitif, monTourPolice));
     jeu.racine.append(barre, outils, jeu.panneau);
+    jeu.resultat?.remove(); jeu.resultat = null;
+    if (local.resultat) { jeu.resultat = carteResultat(local.resultat); jeu.racine.append(jeu.resultat); }
+  }
+
+  // grande carte du résultat d'enquête, vue par le policier seul
+  function carteResultat(e) {
+    const traces = e.traces || (e.trace ? [{ arret: e.arret, manche: e.mancheTrace }] : []);
+    const zone = e.zone || [e.arret];
+    const fermer = () => { local.resultat = null; partie(); };
+    return h('div', { class: 'voile-resultat', role: 'dialog', 'aria-label': 'Résultat de ton enquête' },
+      h('div', { class: 'carte-resultat ' + (traces.length ? 'oui' : 'non') },
+        h('p', { class: 'sur' }, 'Résultat · vu par toi seul'),
+        h('p', { class: 'titre-resultat' }, traces.length ? 'Une trace !' : 'Rien'),
+        h('p', { class: 'intro' }, traces.length
+          ? 'Un fugitif est passé ' + traces.map(t => 'à ' + nomArret(t.arret) + ', manche ' + t.manche).join(' et ') + '.'
+          : (zone.length > 1 ? 'Aucune trace autour de ' + nomArret(e.arret) + ' : ' + zone.length + ' arrêts fouillés.' : 'Aucune trace à ' + nomArret(e.arret) + '.')),
+        h('p', { class: 'consigne' }, vue.role?.corrompu ? 'Annonce-le à voix haute… ou mens.' : 'Annonce-le à voix haute à la police.'),
+        bouton('Continuer', fermer)));
   }
 
   function panneau(monTourFugitif, monTourPolice) {
@@ -258,9 +283,10 @@
       const mes = vue.enquetes || [];
       if (mes.length) x.push(h('div', { class: 'carte' }, h('h2', {}, 'Mes enquêtes · vues par moi seul'),
         h('p', { class: 'petit' }, r.corrompu ? 'Annonce-les à voix haute… ou mens pour égarer la police.' : 'Annonce-les à voix haute à la police.'),
-        h('ul', { class: 'liste' }, mes.slice(-4).reverse().map(e => h('li', {}, e.traces
-          ? `M${e.manche} · autour de ${nomArret(e.arret)} : ${e.traces.length ? e.traces.map(t => nomArret(t.arret) + ', manche ' + t.manche).join(' ; ') : 'rien'}`
-          : `M${e.manche} · ${nomArret(e.arret)} : ${e.trace ? 'trace, manche ' + e.mancheTrace : 'rien'}`)))));
+        h('ul', { class: 'liste' }, mes.slice(-4).reverse().map(e => { const t = e.traces ? e.traces.length > 0 : e.trace;
+          return h('li', { class: t ? 'res-trace' : '' }, e.traces
+            ? `M${e.manche} · autour de ${nomArret(e.arret)} : ${e.traces.length ? 'TRACE à ' + e.traces.map(t => nomArret(t.arret) + ', manche ' + t.manche).join(' ; ') : 'rien'}`
+            : `M${e.manche} · ${nomArret(e.arret)} : ${e.trace ? 'TRACE, manche ' + e.mancheTrace : 'rien'}`); }))));
     }
     if (vue.journal.length) x.push(h('ul', { class: 'liste' }, vue.journal.slice(-3).reverse().map(j => h('li', {}, `M${j.manche} · ${j.texte}`))));
     if (estCreateur()) x.push(forcer());

@@ -44,9 +44,33 @@
       el('circle', { cx: a.x, cy: a.y, r: corr ? 10 : r === 3 ? 7.5 : 6, fill: '#0e0e10', stroke: corr ? '#FFFFFF' : COUL[a.lignes[0]] || '#8B94A8', 'stroke-width': corr ? 3.5 : 3 }, fond);
     }
     // noms : grandes stations toujours, les autres seulement quand on zoome (classe .proche)
-    for (const a of A) {
-      const grand = rang(a) === 3 || a.lignes.length > 1;
-      const t = el('text', { x: a.x + 14, y: a.y + 5, class: grand ? 'etiquette forte' : 'etiquette petite' }, fond); t.textContent = a.nom;
+    // Chaque nom est posé du côté le plus libre : droite, gauche, dessus ou dessous,
+    // en évitant les autres arrêts, les lignes et les noms déjà posés. Les grandes
+    // stations se placent en premier.
+    const points = [];                          // points le long des lignes, tous les 8 px
+    for (const l of reseau.lignes) l.arrets.forEach((x, k) => { if (!k) return; const p = A[l.arrets[k - 1]], q = A[x], n = Math.ceil(Math.hypot(q.x - p.x, q.y - p.y) / 8);
+      for (let i = 0; i <= n; i++) points.push([p.x + (q.x - p.x) * i / n, p.y + (q.y - p.y) * i / n]); });
+    const poses = [];
+    const chevauche = (b, c) => !(b.x2 < c.x1 || c.x2 < b.x1 || b.y2 < c.y1 || c.y2 < b.y1);
+    const ordre = [...A].sort((p, q) => (rang(q) === 3 || q.lignes.length > 1) - (rang(p) === 3 || p.lignes.length > 1));
+    for (const a of ordre) {
+      const grand = rang(a) === 3 || a.lignes.length > 1, taille = grand ? 15 : 12, larg = a.nom.length * taille * 0.56, haut = taille;
+      const choix = [
+        { x: a.x + 14, y: a.y + taille * 0.35, ancre: 'start', b: { x1: a.x + 12, x2: a.x + 14 + larg, y1: a.y - haut * 0.65, y2: a.y + haut * 0.45 } },
+        { x: a.x - 14, y: a.y + taille * 0.35, ancre: 'end', b: { x1: a.x - 14 - larg, x2: a.x - 12, y1: a.y - haut * 0.65, y2: a.y + haut * 0.45 } },
+        { x: a.x, y: a.y - 14, ancre: 'middle', b: { x1: a.x - larg / 2, x2: a.x + larg / 2, y1: a.y - 14 - haut, y2: a.y - 12 } },
+        { x: a.x, y: a.y + 14 + taille, ancre: 'middle', b: { x1: a.x - larg / 2, x2: a.x + larg / 2, y1: a.y + 12, y2: a.y + 16 + taille } }
+      ];
+      let meilleur = choix[0], cout = Infinity;
+      choix.forEach((c, k) => {
+        let n = k * 0.5;                                     // préférence légère pour la droite
+        for (const p of points) if (p[0] > c.b.x1 && p[0] < c.b.x2 && p[1] > c.b.y1 && p[1] < c.b.y2) n += 1;
+        for (const o of A) if (o !== a && o.x > c.b.x1 - 8 && o.x < c.b.x2 + 8 && o.y > c.b.y1 - 8 && o.y < c.b.y2 + 8) n += 6;
+        for (const b of poses) if (chevauche(c.b, b)) n += 12;
+        if (n < cout) { cout = n; meilleur = c; }
+      });
+      poses.push(meilleur.b);
+      const t = el('text', { x: meilleur.x, y: meilleur.y, 'text-anchor': meilleur.ancre, class: grand ? 'etiquette forte' : 'etiquette petite' }, fond); t.textContent = a.nom;
     }
     // étiquettes de ligne aux deux bouts de chaque ligne
     const vus = new Set();
@@ -128,10 +152,15 @@
       for (const id of o.bloques || []) if (A[id]) el('circle', { cx: A[id].x, cy: A[id].y, r: 22, class: 'bloque' }, calque);
       if (o.choisi != null && A[o.choisi]) el('circle', { cx: A[o.choisi].x, cy: A[o.choisi].y, r: 20, class: 'choisi' }, calque);
       for (const id of o.objets || []) el('rect', { x: A[id].x - 7, y: A[id].y - 30, width: 14, height: 14, fill: '#D1EE59', stroke: '#0e0e10', 'stroke-width': 2, transform: `rotate(45 ${A[id].x} ${A[id].y - 23})` }, calque);
+      // arrêts fouillés sans résultat : cercle gris discret
+      for (const id of o.fouilles || []) if (A[id]) el('circle', { cx: A[id].x, cy: A[id].y, r: 18, class: 'fouille' }, calque);
+      // traces : anneau et étiquette orange bien visibles
       for (const t of o.traces || []) {
-        const a = A[t.arret]; const g = el('g', { transform: `translate(${a.x} ${a.y - 38})` }, calque);
-        el('rect', { x: -6, y: -11, width: 12 + t.texte.length * 6.6, height: 22, rx: 11, fill: t.trace ? '#FFB98A' : '#3a3252' }, g);
-        const x = el('text', { x: 0, y: 4, class: t.trace ? 'texte-trace' : 'texte-rien' }, g); x.textContent = t.texte;
+        const a = A[t.arret]; if (!a) continue;
+        el('circle', { cx: a.x, cy: a.y, r: 20, class: 'anneau-trace' }, calque);
+        const larg = 22 + t.texte.length * 8, g = el('g', { transform: `translate(${a.x} ${a.y - 44})` }, calque);
+        el('rect', { x: -larg / 2, y: -14, width: larg, height: 28, rx: 14, fill: '#FFB98A', stroke: '#0e0e10', 'stroke-width': 2 }, g);
+        const x = el('text', { x: 0, y: 5, class: 'texte-trace' }, g); x.textContent = t.texte;
       }
       (o.police || []).forEach((p, k) => jeton(A[p.arret], p.coul, p.lettre, 28, k % 2 ? 10 : -10, k % 2 ? 10 : -10));
       for (const f of o.fugitifs || []) { if (f.moi) el('circle', { cx: A[f.arret].x, cy: A[f.arret].y, r: 30, fill: 'rgba(209,238,89,.2)' }, calque); jeton(A[f.arret], f.libre === false ? '#8B94A8' : '#D1EE59', f.lettre, f.moi ? 36 : 30); }
