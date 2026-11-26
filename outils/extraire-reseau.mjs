@@ -78,7 +78,8 @@ const km = z => { const k = Math.PI / 180; return [(z.lon - capitole.lon) * Math
 const lourd = new Set(['A', 'B', 'T1', 'TELEO'].flatMap(n => ordre[n]));
 // Prolongements hors du rayon : la L5 rejoint vraiment l'Oncopole, terminus de
 // Téléo, qui sinon restait en cul-de-sac. On garde ses arrêts réels jusque-là.
-const PROLONGEMENTS = [['L5', 'Gallieni', 'Oncopole - Lise Enjalbert']];
+// La L14 rejoint de même Mirail-Université, sur le métro A.
+const PROLONGEMENTS = [['L5', 'Gallieni', 'Oncopole - Lise Enjalbert'], ['L14', 'Cépière Rocade', 'Mirail-Université']];
 for (const [n, de, a] of PROLONGEMENTS) {
   const i = ordre[n].findIndex(z => zones[z].nom === de), j = ordre[n].findIndex(z => zones[z].nom === a);
   if (i < 0 || j < 0) throw new Error(`Prolongement ${n} introuvable : ${de} → ${a}`);
@@ -89,6 +90,30 @@ for (const [n, de, a] of PROLONGEMENTS) {
 const RETIRES = new Set(Object.keys(zones).filter(z => zones[z].nom === 'Oncopole Courrière'));
 for (const n of Object.keys(ordre)) ordre[n] = ordre[n].filter(z => !RETIRES.has(z));
 for (const z of RETIRES) lourd.delete(z);
+// Bus réels qui referment les plus longues impasses : on garde le tronçon du bus
+// entre deux arrêts du plateau, avec ses vrais arrêts intermédiaires.
+const LIAISONS_BUS = [['27', 'Guilhemery', 'Trois Fours'], ['51', 'Barrau', 'Achiary'], ['63', 'Ponts Jumeaux', 'Hôpital Purpan'], ['70', 'Fourmi', 'Canal du Midi']];
+const zoneDuPlateau = nom => Object.values(ordre).flat().find(z => zones[z].nom === nom);
+for (const [n, de, a] of LIAISONS_BUS) {
+  let meilleur = null;
+  for (const [id, s] of Object.entries(suites)) {
+    if (trajetsBus[id] !== n) continue;
+    const zs = s.slice().sort((x, y) => x[0] - y[0]).map(([, sp]) => arretsGtfs[sp].parent || sp).filter((z, k, t) => k === 0 || z !== t[k - 1]);
+    const noms = zs.map(z => (arretsGtfs[z] || {}).nom);
+    const i = noms.indexOf(de), j = noms.indexOf(a);
+    if (i < 0 || j < 0) continue;
+    const morceau = zs.slice(Math.min(i, j), Math.max(i, j) + 1);
+    if (!meilleur || morceau.length < meilleur.length) meilleur = i < j ? morceau : morceau.reverse();
+  }
+  if (!meilleur) throw new Error(`Bus ${n} introuvable entre ${de} et ${a}`);
+  // les deux bouts se branchent sur les arrêts déjà sur le plateau
+  const chemin = meilleur.map((z, k) => {
+    if (k === 0 || k === meilleur.length - 1) { const ex = zoneDuPlateau(arretsGtfs[z].nom); if (ex) return ex; }
+    const g = arretsGtfs[z]; zones[z] ||= { nom: g.nom, lat: g.lat, lon: g.lon };
+    return z;
+  });
+  ordre['Bus ' + n] = chemin; chemin.forEach(z => lourd.add(z));
+}
 // Le T1 est coupé après Guyenne-Berry : vers l'aéroport, 10 arrêts en impasse
 // qui étiraient le plan sans rien apporter au jeu.
 const COUPE_T1 = 'Guyenne-Berry';
@@ -97,7 +122,7 @@ if (iCoupe < 0) throw new Error('Arrêt de coupe du T1 introuvable : ' + COUPE_T
 const debutT1 = zones[ordre.T1[0]].nom === 'Palais de Justice';
 const coupes = new Set((debutT1 ? ordre.T1.slice(iCoupe + 1) : ordre.T1.slice(0, iCoupe)).filter(z => !['A', 'B', 'TELEO'].some(n => ordre[n].includes(z))));
 const garde = z => !coupes.has(z) && (lourd.has(z) || Math.hypot(...km(zones[z])) <= RAYON_KM);
-const mode = n => n === 'A' || n === 'B' ? 'metro' : n === 'T1' ? 'tram' : n === 'TELEO' ? 'teleo' : 'lineo';
+const mode = n => n === 'A' || n === 'B' ? 'metro' : n === 'T1' ? 'tram' : n === 'TELEO' ? 'teleo' : n.startsWith('Bus ') ? 'bus' : 'lineo';
 
 // découpe chaque ligne en tronçons d'arrêts gardés
 const troncons = [];

@@ -65,8 +65,14 @@
     ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/partie/${session.code}/ws`);
     ws.onopen = () => { essais = 0; ws.send(JSON.stringify({ type: 'auth', jeton: session.jeton })); };
     ws.onmessage = e => {
+      try { const v = JSON.parse(e.data).vue; if (v?.maintenant) local.decalage = v.maintenant - Date.now(); } catch {}
       let m; try { m = JSON.parse(e.data); } catch { return; }
-      if (m.type === 'vue') { if (vue && m.vue.moi !== vue.moi) { jeu = null; local.choisi = null; local.resultat = null; } vue = m.vue; rendre(); }
+      if (m.type === 'vue') {
+        if (vue && m.vue.moi !== vue.moi) { jeu = null; local.choisi = null; local.resultat = null; }
+        const nouveaux = vue && m.vue.moi === vue.moi ? (m.vue.journal || []).slice(vue.journal?.length || 0) : [];
+        vue = m.vue; rendre();
+        if (nouveaux.length) message(nouveaux.at(-1).texte);
+      }
       else if (m.type === 'erreur') message(m.message);
       else if (m.type === 'retour' && m.action === 'enqueter') { local.resultat = m.resultat; rendre(); }
       else if (m.type === 'retour' && m.action === 'arreter') message(m.resultat.reussie ? 'Arrestation réussie !' : 'Personne à arrêter ici.');
@@ -118,6 +124,28 @@
     for (let i = 0; i < pas; i++) { const s = []; for (const a of front) for (const v of reseau.arrets[a].voisins) if (!vus.has(v) && !bloques?.has(v)) { vus.add(v); s.push(v); } front = s; }
     return vus;
   }
+  const ilYa = n => n <= 0 ? 'pendant cette manche' : n === 1 ? 'il y a 1 manche' : `il y a ${n} manches`;
+  const mancheAnnonces = () => { const a = []; for (let m = 5; m < vue.reglages.manches; m += 5) a.push(m); return a; };
+  // compteur d'objets : les fugitifs et le MJ voient le total, la police seulement la dernière annonce
+  function compteur() {
+    const obj = vue.reglages.objectif;
+    if (vue.objetsRamasses != null) return h('span', { class: 'compteur', 'aria-label': 'Objets volés : ' + vue.objetsRamasses + ' sur ' + obj }, vue.objetsRamasses + ' / ' + obj);
+    const der = (vue.revelations || []).at(-1);
+    return h('span', { class: 'compteur', 'aria-label': der ? 'Objets volés annoncés après la manche ' + der.manche + ' : ' + der.objets + ' sur ' + obj : 'Objets volés : inconnu jusqu’à la manche 5' },
+      der ? der.objets + ' / ' + obj + ' · M' + der.manche : '? / ' + obj);
+  }
+  // chrono de l'équipe en cours, d'après l'heure du serveur
+  const chrono = () => vue.finTour ? h('p', { class: 'chrono', id: 'chrono', 'aria-live': 'off' }, texteChrono()) : null;
+  function texteChrono() {
+    const reste = Math.max(0, Math.ceil((vue.finTour - (Date.now() + (local.decalage || 0))) / 1000));
+    return 'Temps de l’équipe : ' + Math.floor(reste / 60) + ':' + String(reste % 60).padStart(2, '0');
+  }
+  setInterval(() => {
+    if (!vue?.finTour) return;
+    const el = document.getElementById('chrono'); if (el) el.textContent = texteChrono();
+    // temps écoulé : on le signale, le serveur vérifie l'heure ; nouvel essai toutes les 3 s
+    if (Date.now() + (local.decalage || 0) >= vue.finTour && Date.now() - (local.chronoEnvoye || 0) > 3000) { local.chronoEnvoye = Date.now(); envoyer('tempsEcoule'); }
+  }, 1000);
   const forcer = () => h('button', { class: 'bouton second', type: 'button', clic: () => { if (confirm('Passer à la suite sans attendre les joueurs en retard ?')) envoyer('forcer'); } }, 'Forcer la suite');
 
   // ---------- rendu ----------
@@ -126,7 +154,7 @@
     barreEssai();
     if (vue.phase === 'salle') return salle();
     if (vue.phase === 'roles') return vue.estMJ ? rolesMJ() : roles();
-    if (vue.phase === 'fugitifs' || vue.phase === 'police') return vue.estMJ ? partieMJ() : partie();
+    if (vue.phase === 'depart' || vue.phase === 'fugitifs' || vue.phase === 'police') return vue.estMJ ? partieMJ() : partie();
     if (vue.phase === 'accusation') return vue.estMJ ? accusationMJ() : accusation();
     if (vue.phase === 'fin') return fin();
   }
@@ -145,9 +173,10 @@
       local.reglages && estCreateur()
         ? h('div', { class: 'carte' }, h('div', { class: 'ligne' }, h('h2', {}, 'Réglages'), h('button', { type: 'button', class: 'lien', clic: () => { local.reglages = false; salle(); } }, 'Fermer')),
             reglage('fugitifs', 'Fugitifs', 1, 6), reglage('equipes', 'Équipes de police', 1, 4),
-            reglage('corrompus', 'Policiers corrompus', 0, 4), reglage('objets', 'Objets cachés', 4, 80), reglage('objectif', 'Objets à ramasser', 1, 80), reglage('manches', 'Manches', 3, 30))
+            reglage('corrompus', 'Policiers corrompus', 0, 4), reglage('objets', 'Objets cachés', 4, 80), reglage('objectif', 'Objets à ramasser', 1, 80), reglage('manches', 'Manches', 3, 30),
+            h('div', { class: 'ligne' }, h('span', {}, 'Chrono de 5 min par équipe'), h('button', { type: 'button', class: 'lien', 'aria-pressed': String(!!r.chrono), clic: () => envoyer('regler', { reglages: { chrono: r.chrono ? 0 : 5 } }) }, r.chrono ? 'Oui' : 'Non')))
         : h('div', { class: 'carte' }, h('div', { class: 'ligne' }, h('h2', {}, 'Réglages'), estCreateur() ? h('button', { type: 'button', class: 'lien', clic: () => { local.reglages = true; salle(); } }, 'Modifier') : null),
-            h('p', { class: 'petit' }, `${r.fugitifs} fugitif${r.fugitifs > 1 ? 's' : ''} · ${r.equipes} équipe${r.equipes > 1 ? 's' : ''} de police · ${r.corrompus} corrompu${r.corrompus > 1 ? 's' : ''} · ${r.objectif} objets à trouver sur ${r.objets} · ${r.manches} manches`)),
+            h('p', { class: 'petit' }, `${r.fugitifs} fugitif${r.fugitifs > 1 ? 's' : ''} · ${r.equipes} équipe${r.equipes > 1 ? 's' : ''} de police · ${r.corrompus} corrompu${r.corrompus > 1 ? 's' : ''} · ${r.objectif} objets à trouver sur ${r.objets} · ${r.manches} manches${r.chrono ? ` · chrono de ${r.chrono} min par équipe` : ''}`)),
       // le MJ à part, puis les joueurs avec leur nombre et ce qu'il manque pour lancer
       vue.mj ? h('div', { class: 'carte' }, h('div', { class: 'ligne' }, h('h2', {}, 'Maître du jeu'), pastille(vue.mj + (vue.estMJ ? ' · toi' : ''), C.citron)),
         h('p', { class: 'petit' }, 'Ne joue pas : voit toute la partie et l’anime.')) : null,
@@ -170,6 +199,8 @@
     } else {
       infos.push(ligne('Ton équipe', vue.joueurs.filter(j => j.equipe === r.equipe && j.role === 'policier' && j.id !== vue.moi).map(j => j.nom).join(', ') || 'seul'));
       infos.push(ligne('Fugitifs', vue.joueurs.filter(j => j.role === 'fugitif').map(j => j.nom).join(', ')));
+      const annonces = mancheAnnonces();
+      if (annonces.length) infos.push(ligne('Objets volés', 'annoncés après les manches ' + annonces.join(' et ')));
     }
     // un corrompu ne se voit pas dans la liste : seulement les autres, s'il y en a
     const autres = (vue.corrompus || []).filter(id => id !== vue.moi);
@@ -198,16 +229,18 @@
       plan.surChoix(a => { local.choisi = a; local.replie = false; partie(); });
       jeu = { racine, plan, barre: null, outils: null, panneau: null };
       const p = r.role === 'fugitif' || r.corrompu ? vue.joueurs.find(j => j.id === vue.moi).position : m.position;
-      if (p != null) plan.centrer(p);
+      if (p != null) plan.centrer(p); else plan.toutVoir();
       local.choisi = null;
     }
     const monTourFugitif = r.role === 'fugitif' && m.libre && vue.phase === 'fugitifs' && !vue.coup;
     const t = vue.tour, monTourPolice = r.role === 'policier' && vue.phase === 'police' && t && !t.fini;
     let cercles = [];
     const patrouilles = new Set(vue.bloques || []);   // arrêts tenus par une patrouille qui vient d'y arriver
-    if (monTourFugitif) cercles = [...portee(m.position, 2, patrouilles)];
+    const monDepart = vue.phase === 'depart' && ((vue.depart === 'police' && r.role === 'policier') || (vue.depart === 'fugitifs' && r.role === 'fugitif'));
+    if (monDepart) cercles = reseau.arrets.map(a => a.id).filter(a => r.role === 'policier' || !(vue.objets || []).includes(a));
+    else if (monTourFugitif) cercles = [...portee(m.position, 2, patrouilles)];
     else if (monTourPolice && !t.deplace) cercles = [...portee(m.position, r.specialite === 'patrouille' ? 3 : 2)].filter(a => r.specialite !== 'patrouille' || a !== m.position);
-    else if (monTourPolice) cercles = [...portee(m.position, 1)];
+    else if (monTourPolice) cercles = [m.position];
     if (local.choisi != null && !cercles.includes(local.choisi) && !(r.corrompu && vue.phase === 'police')) local.choisi = null;
 
     const enquetes = (vue.enquetes || []).filter(e => e.manche >= vue.manche - 1);
@@ -220,9 +253,10 @@
     });
 
     // barre du haut
-    const tour = vue.phase === 'fugitifs' ? ['Les fugitifs se déplacent', C.citron] : [`Au tour de l’équipe ${equipe(vue.equipeEnCours)[0]}`, equipe(vue.equipeEnCours)[1]];
-    const barre = h('div', { class: 'barre' }, h('div', {}, h('p', { class: 'sur' }, `Manche ${vue.manche} / ${vue.reglages.manches}`), h('p', { class: 'tour', couleur: tour[1] }, tour[0])),
-      h('span', { class: 'compteur', 'aria-label': 'Objets ramassés' }, `${vue.objetsRamasses} / ${vue.reglages.objectif}`));
+    const tour = vue.phase === 'depart' ? [vue.depart === 'police' ? 'La police choisit son départ' : 'Les fugitifs choisissent leur départ', vue.depart === 'police' ? C.txt2 : C.citron]
+      : vue.phase === 'fugitifs' ? ['Les fugitifs se déplacent', C.citron] : [`Au tour de l’équipe ${equipe(vue.equipeEnCours)[0]}`, equipe(vue.equipeEnCours)[1]];
+    const barre = h('div', { class: 'barre' }, h('div', {}, h('p', { class: 'sur' }, vue.phase === 'depart' ? 'Avant la manche 1' : `Manche ${vue.manche} / ${vue.reglages.manches}`), h('p', { class: 'tour', couleur: tour[1] }, tour[0]), chrono()),
+      compteur());
     const outils = h('div', { class: 'outils' },
       h('button', { type: 'button', 'aria-label': 'Recentrer sur ma position', clic: () => jeu.plan.centrer(m.position ?? 0) }, '◎'),
       h('button', { type: 'button', 'aria-label': 'Voir tout le réseau', clic: () => jeu.plan.toutVoir() }, '⤢'));
@@ -243,7 +277,7 @@
         h('p', { class: 'sur' }, 'Résultat · vu par toi seul'),
         h('p', { class: 'titre-resultat' }, traces.length ? 'Une trace !' : 'Rien'),
         h('p', { class: 'intro' }, traces.length
-          ? 'Un fugitif est passé ' + traces.map(t => 'à ' + nomArret(t.arret) + ', manche ' + t.manche).join(' et ') + '.'
+          ? 'Un fugitif est passé ' + traces.map(t => 'à ' + nomArret(t.arret) + ' ' + ilYa(t.ilYa ?? e.manche - t.manche)).join(' et ') + '.'
           : (zone.length > 1 ? 'Aucune trace autour de ' + nomArret(e.arret) + ' : ' + zone.length + ' arrêts fouillés.' : 'Aucune trace à ' + nomArret(e.arret) + '.')),
         h('p', { class: 'consigne' }, vue.role?.corrompu ? 'Annonce-le à voix haute… ou mens.' : 'Annonce-le à voix haute à la police.'),
         bouton('Continuer', fermer)));
@@ -267,8 +301,24 @@
   function panneau(monTourFugitif, monTourPolice) {
     const r = vue.role, m = moi(), t = vue.tour, x = [];
     const choisi = local.choisi != null ? nomArret(local.choisi) : null;
+    if (vue.phase === 'depart') {
+      const aMoi = (vue.depart === 'police' && r.role === 'policier') || (vue.depart === 'fugitifs' && r.role === 'fugitif');
+      if (aMoi) {
+        x.push(h('h2', {}, m.position != null ? 'Ton départ : ' + nomArret(m.position) : 'Choisis ton arrêt de départ'),
+          h('p', { class: 'intro' }, r.role === 'policier'
+            ? 'Touche n’importe quel arrêt. Ta position est visible de tous, fugitifs compris. Tu peux changer tant que toute la police n’est pas placée.'
+            : 'En secret, sur n’importe quel arrêt sans objet. Regarde où est la police. Tu peux changer tant que tous les fugitifs ne sont pas placés.'));
+        if (choisi) x.push(ligne('Arrêt choisi', choisi));
+        x.push(bouton(choisi ? 'Partir de ' + choisi : 'Touche un arrêt', () => { envoyer('placer', { arret: local.choisi }); local.choisi = null; }, false, !choisi));
+      } else if (vue.depart === 'police') x.push(h('h2', {}, 'La police se place'), h('p', { class: 'intro' }, r.role === 'fugitif' ? 'Regarde où elle s’installe : tu choisiras ton départ juste après, en secret.' : 'Ton départ est choisi. On attend le reste de la police.'));
+      else x.push(h('h2', {}, 'Les fugitifs se placent'), h('p', { class: 'intro' }, r.role === 'fugitif' ? 'Ton départ est choisi. On attend ton équipe.' : 'En secret. La première manche commence juste après.'));
+      const attente = vue.joueurs.filter(j => j.role === (vue.depart === 'police' ? 'policier' : 'fugitif') && !(vue.places || []).includes(j.id));
+      if (vue.depart === 'police' && attente.length) x.push(h('p', { class: 'petit' }, 'Encore à placer : ' + attente.map(j => j.nom).join(', ')));
+      if (estCreateur()) x.push(forcer());
+      return x;
+    }
     if (r.role === 'fugitif') {
-      if (!m.libre) x.push(h('h2', {}, 'Tu as été arrêté'), h('p', { class: 'intro' }, 'Tes objets sont perdus. Aide ton équipe de vive voix, si vous êtes ensemble.'));
+      if (!m.libre) x.push(h('h2', {}, 'Tu es en prison'), h('p', { class: 'intro' }, 'Tes objets sont perdus. Tu ne parles plus et tu ne montres plus ton écran jusqu’à la fin de la partie.'));
       else if (monTourFugitif) {
         x.push(h('h2', {}, 'Avance de 2 arrêts au plus'), h('p', { class: 'intro' }, 'Touche un arrêt cerclé. Tu ramasses les objets des arrêts traversés.'));
         if (choisi) x.push(ligne('Arrêt choisi', choisi));
@@ -283,12 +333,12 @@
         x.push(bouton(choisi ? 'Aller à ' + choisi : 'Choisis un arrêt', () => { envoyer('deplacerPolicier', { arret: local.choisi }); local.choisi = null; }, false, !choisi),
           r.specialite === 'patrouille' ? null : bouton('Rester ici', () => envoyer('deplacerPolicier', { arret: m.position }), true));
       } else if (monTourPolice) {
-        x.push(h('div', { class: 'ligne' }, h('h2', {}, `Tes actions : ${t.actions}`), pastille('Sur ton arrêt ou un voisin', C.txt2)));
+        x.push(h('div', { class: 'ligne' }, h('h2', {}, `Tes actions : ${t.actions}`), pastille('À ' + nomArret(m.position), C.txt2)));
         const opt = (cle, titre, sous) => h('button', { type: 'button', class: 'option', 'aria-pressed': String(local.action === cle), clic: () => { local.action = cle; partie(); } }, h('b', {}, titre), h('span', {}, sous));
-        x.push(h('div', { class: 'choix' }, opt('enqueter', 'Enquêter', r.specialite === 'enqueteurs' ? 'L’arrêt et ses voisins' : 'Chercher une trace'), opt('arreter', 'Arrêter', r.specialite === 'intervention' ? 'L’arrêt et ses voisins' : 'Si tu crois un fugitif là')));
-        if (choisi) x.push(ligne('Arrêt visé', choisi));
-        x.push(bouton(choisi ? (local.action === 'enqueter' ? 'Enquêter à ' : 'Arrêter à ') + choisi : 'Touche un arrêt cerclé',
-          () => envoyer(local.action === 'enqueter' ? 'enqueter' : 'arreter', { arret: local.choisi }), false, !choisi),
+        x.push(h('div', { class: 'choix' }, opt('enqueter', 'Enquêter', r.specialite === 'enqueteurs' ? 'Ton arrêt et ses voisins' : 'Chercher une trace ici'), opt('arreter', 'Arrêter', r.specialite === 'intervention' ? 'Ton arrêt et ses voisins' : 'Si un fugitif est ici')));
+        x.push(h('p', { class: 'petit' }, 'Tout le monde verra ton action et l’arrêt, mais pas le résultat d’une enquête.'));
+        x.push(bouton((local.action === 'enqueter' ? 'Enquêter à ' : 'Arrêter à ') + nomArret(m.position),
+          () => envoyer(local.action === 'enqueter' ? 'enqueter' : 'arreter', { arret: m.position })),
           bouton('Finir mon tour', () => envoyer('finirTour'), true));
         if (r.corrompu) x.push(h('p', { class: 'petit' }, 'Tes arrestations sont annulées en secret.'));
       } else if (vue.phase === 'police') x.push(h('h2', {}, `L’équipe ${equipe(vue.equipeEnCours)[0]} joue`), h('p', { class: 'intro' }, t?.fini ? 'Tu as fini ton tour.' : 'Attends ton tour.'));
@@ -300,8 +350,8 @@
         h('p', { class: 'petit' }, r.corrompu ? 'Annonce-les à voix haute… ou mens pour égarer la police.' : 'Annonce-les à voix haute à la police.'),
         h('ul', { class: 'liste' }, mes.slice(-4).reverse().map(e => { const t = e.traces ? e.traces.length > 0 : e.trace;
           return h('li', { class: t ? 'res-trace' : '' }, e.traces
-            ? `M${e.manche} · autour de ${nomArret(e.arret)} : ${e.traces.length ? 'TRACE à ' + e.traces.map(t => nomArret(t.arret) + ', manche ' + t.manche).join(' ; ') : 'rien'}`
-            : `M${e.manche} · ${nomArret(e.arret)} : ${e.trace ? 'TRACE, manche ' + e.mancheTrace : 'rien'}`); }))));
+            ? `M${e.manche} · autour de ${nomArret(e.arret)} : ${e.traces.length ? 'TRACE à ' + e.traces.map(t => nomArret(t.arret) + ' ' + ilYa(e.manche - t.manche)).join(' ; ') : 'rien'}`
+            : `M${e.manche} · ${nomArret(e.arret)} : ${e.trace ? 'TRACE ' + ilYa(e.manche - e.mancheTrace) : 'rien'}`); }))));
     }
     if (vue.journal.length) x.push(h('ul', { class: 'liste' }, vue.journal.slice(-3).reverse().map(j => h('li', {}, `M${j.manche} · ${j.texte}`))));
     if (estCreateur()) x.push(forcer());
@@ -342,19 +392,22 @@
     }
     jeu.plan.maj({
       objets: vue.objets || [], bloques: vue.bloques || [],
-      police: vue.joueurs.filter(j => j.role === 'policier').map(j => ({ arret: j.position, coul: j.corrompu ? C.rouge : equipe(j.equipe)[1], lettre: equipe(j.equipe)[2] })),
-      fugitifs: vue.joueurs.filter(j => j.role === 'fugitif').map(j => ({ arret: j.position, lettre: j.nom[0].toUpperCase(), libre: j.libre }))
+      police: vue.joueurs.filter(j => j.role === 'policier' && j.position != null).map(j => ({ arret: j.position, coul: j.corrompu ? C.rouge : equipe(j.equipe)[1], lettre: equipe(j.equipe)[2] })),
+      fugitifs: vue.joueurs.filter(j => j.role === 'fugitif' && j.position != null).map(j => ({ arret: j.position, lettre: j.nom[0].toUpperCase(), libre: j.libre }))
     });
-    const tour = vue.phase === 'fugitifs' ? ['Les fugitifs se déplacent', C.citron] : ['Au tour de l’équipe ' + equipe(vue.equipeEnCours)[0], equipe(vue.equipeEnCours)[1]];
-    const barre = h('div', { class: 'barre' }, h('div', {}, h('p', { class: 'sur' }, 'MJ · manche ' + vue.manche + ' / ' + vue.reglages.manches), h('p', { class: 'tour', couleur: tour[1] }, tour[0])),
-      h('span', { class: 'compteur', 'aria-label': 'Objets ramassés' }, vue.objetsRamasses + ' / ' + vue.reglages.objectif));
+    const tour = vue.phase === 'depart' ? [vue.depart === 'police' ? 'La police choisit son départ' : 'Les fugitifs choisissent leur départ', C.txt2]
+      : vue.phase === 'fugitifs' ? ['Les fugitifs se déplacent', C.citron] : ['Au tour de l’équipe ' + equipe(vue.equipeEnCours)[0], equipe(vue.equipeEnCours)[1]];
+    const barre = h('div', { class: 'barre' }, h('div', {}, h('p', { class: 'sur' }, vue.phase === 'depart' ? 'MJ · avant la manche 1' : 'MJ · manche ' + vue.manche + ' / ' + vue.reglages.manches), h('p', { class: 'tour', couleur: tour[1] }, tour[0]), chrono()),
+      compteur());
     const outils = h('div', { class: 'outils' }, h('button', { type: 'button', 'aria-label': 'Voir tout le réseau', clic: () => jeu.plan.toutVoir() }, '⤢'));
     // qui doit encore jouer
-    const attente = vue.phase === 'fugitifs'
+    const attente = vue.phase === 'depart'
+      ? vue.joueurs.filter(j => j.role === (vue.depart === 'police' ? 'policier' : 'fugitif') && j.position == null)
+      : vue.phase === 'fugitifs'
       ? vue.joueurs.filter(j => j.role === 'fugitif' && j.libre && !(vue.ontJoue || []).includes(j.id))
       : vue.joueurs.filter(j => j.role === 'policier' && j.equipe === vue.equipeEnCours && !(vue.finis || []).includes(j.id));
     const x = [h('h2', {}, attente.length ? 'On attend : ' + attente.map(j => j.nom).join(', ') : 'Tout le monde a joué')];
-    x.push(h('div', { class: 'carte' }, h('h2', {}, 'Fugitifs'), vue.joueurs.filter(j => j.role === 'fugitif').map(j => ligne(j.nom, j.libre ? nomArret(j.position) + ' · ' + j.objets + ' objet' + (j.objets > 1 ? 's' : '') : 'arrêté'))));
+    x.push(h('div', { class: 'carte' }, h('h2', {}, 'Fugitifs'), vue.joueurs.filter(j => j.role === 'fugitif').map(j => ligne(j.nom, j.position == null ? 'pas encore placé' : j.libre ? nomArret(j.position) + ' · ' + j.objets + ' objet' + (j.objets > 1 ? 's' : '') : 'en prison'))));
     x.push(h('div', { class: 'carte' }, h('h2', {}, 'Corrompus'), vue.joueurs.filter(j => j.corrompu).map(j => ligne(j.nom, 'équipe ' + equipe(j.equipe)[0]))));
     if (vue.journal.length) x.push(h('ul', { class: 'liste' }, vue.journal.slice(-3).reverse().map(j => h('li', {}, 'M' + j.manche + ' · ' + j.texte))));
     x.push(forcer());

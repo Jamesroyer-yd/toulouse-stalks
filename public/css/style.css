@@ -154,3 +154,6 @@ body.essai-actif .jeu{top:44px}
 .carte-resultat.oui .titre-resultat{color:var(--orange)}
 .carte-resultat.non .titre-resultat{color:var(--txt2)}
 .consigne{font-size:13px;font-weight:600;color:var(--citron)}
+
+/* chrono par équipe */
+.barre .chrono{font-size:13px;font-weight:600;color:var(--txt);font-variant-numeric:tabular-nums}

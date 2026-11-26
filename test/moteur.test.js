@@ -13,8 +13,11 @@ function partie(n = 10, s = 7) {
   for (let i = 1; i < n; i++) M.rejoindre(p, 'j' + i, 'Joueur ' + i);
   M.lancer(p, 'j0', reseau, graine(s));
   p.ordre.forEach(id => M.pret(p, id));
+  placerTous(p);
   return p;
 }
+// départs placés au hasard par le créateur : police, puis fugitifs
+function placerTous(p) { M.forcerSuite(p, p.createur, reseau); M.forcerSuite(p, p.createur, reseau); }
 const role = (p, r, corrompu) => p.ordre.filter(f => p.joueurs[f].role === r && (corrompu === undefined || p.joueurs[f].corrompu === corrompu));
 
 test('le réseau est connexe', () => {
@@ -36,7 +39,7 @@ test('lancement : rôles, équipes et corrompus', () => {
   const eq = new Set(role(p, 'policier', true).map(f => p.joueurs[f].equipe));
   assert.equal(eq.size, 2, 'deux corrompus dans deux équipes différentes');
   assert.equal(p.phase, 'fugitifs'); assert.equal(p.manche, 1);
-  assert.equal(p.objets.length, 28);
+  assert.equal(p.objets.length, p.reglages.objets);
 });
 
 test('le créateur joue aussi', () => {
@@ -199,11 +202,13 @@ test('MJ : pas de rôle, mais il règle, lance et force la suite', () => {
   M.lancer(p, 'mj', reseau, graine(3));
   assert.equal(p.joueurs.mj, undefined, 'le MJ n’est pas un joueur');
   p.ordre.forEach(id => M.pret(p, id));
+  assert.equal(p.phase, 'depart');
+  placerTous(p);
   assert.equal(p.phase, 'fugitifs');
   M.forcerSuite(p, 'mj'); assert.equal(p.phase, 'police');
 });
 test('MJ : il voit tout, mais ne peut pas jouer', () => {
-  const p = partieMJ(10); M.lancer(p, 'mj', reseau, graine(5)); p.ordre.forEach(id => M.pret(p, id));
+  const p = partieMJ(10); M.lancer(p, 'mj', reseau, graine(5)); p.ordre.forEach(id => M.pret(p, id)); placerTous(p);
   const v = M.vue(p, 'mj');
   assert.equal(v.estMJ, true);
   assert.ok(v.joueurs.every(j => j.position != null), 'toutes les positions');
@@ -237,4 +242,86 @@ test('essai : impossible dans une vraie partie', () => {
   const p = M.nouvellePartie('VR', 'mj', 'James', true);
   for (let i = 0; i < 8; i++) M.rejoindre(p, 'j' + i, 'Joueur ' + i);
   assert.throws(() => M.incarnation(p, 'mj', 'j1'), /Réservé/);
+});
+
+// ---------- départ choisi ----------
+function partieAuDepart(n = 10, s = 7) {
+  const p = M.nouvellePartie('DEP', 'j0', 'Joueur 0');
+  for (let i = 1; i < n; i++) M.rejoindre(p, 'j' + i, 'Joueur ' + i);
+  M.lancer(p, 'j0', reseau, graine(s));
+  p.ordre.forEach(id => M.pret(p, id));
+  return p;
+}
+test('départ : la police se place d’abord, où elle veut, et peut changer d’avis', () => {
+  const p = partieAuDepart(); const flics = role(p, 'policier'), fug = role(p, 'fugitif');
+  assert.equal(p.phase, 'depart'); assert.equal(p.depart, 'police');
+  assert.throws(() => M.placer(p, fug[0], 0, reseau), /police choisit/);
+  M.placer(p, flics[0], 5, reseau); M.placer(p, flics[0], 6, reseau);
+  assert.equal(p.joueurs[flics[0]].position, 6);
+  flics.forEach(f => M.placer(p, f, 6, reseau));            // plusieurs joueurs sur un même arrêt
+  assert.equal(p.depart, 'fugitifs');
+  assert.throws(() => M.placer(p, flics[0], 7, reseau), /déjà placée/);
+});
+test('départ : les fugitifs jamais sur un objet, en secret, puis la partie commence', () => {
+  const p = partieAuDepart(); const flics = role(p, 'policier'), fug = role(p, 'fugitif');
+  flics.forEach(f => M.placer(p, f, 0, reseau));
+  assert.throws(() => M.placer(p, fug[0], p.objets[0], reseau), /objet/);
+  const libre = reseau.arrets.find(a => !p.objets.includes(a.id)).id;
+  M.placer(p, fug[0], libre, reseau);
+  assert.equal(M.vue(p, flics[1]).joueurs.find(j => j.id === fug[0]).position, undefined, 'la police ne voit pas le départ des fugitifs');
+  fug.slice(1).forEach(f => M.placer(p, f, libre, reseau));
+  assert.equal(p.phase, 'fugitifs'); assert.equal(p.manche, 1);
+  assert.ok(p.passages[libre]?.length, 'le départ laisse une trace');
+});
+
+// ---------- compteur caché ----------
+test('compteur : caché à la police, annoncé à la fin des manches 5 et 10', () => {
+  const p = partie(10); const fug = role(p, 'fugitif'), hon = role(p, 'policier', false)[0], corr = role(p, 'policier', true)[0];
+  assert.equal(M.vue(p, hon).objetsRamasses, undefined);
+  assert.equal(M.vue(p, corr).objetsRamasses, undefined, 'le corrompu non plus');
+  assert.equal(typeof M.vue(p, fug[0]).objetsRamasses, 'number');
+  p.joueurs[fug[0]].objets = 3;
+  while (p.manche < 6 && p.phase !== 'accusation') M.forcerSuite(p, p.createur);
+  assert.deepEqual(p.revelations, [{ manche: 5, objets: 3 }]);
+  assert.deepEqual(M.vue(p, hon).revelations, [{ manche: 5, objets: 3 }]);
+  assert.ok(p.journal.some(j => /Fin de la manche 5 : les fugitifs ont volé 3 objets/.test(j.texte)));
+});
+
+// ---------- chrono par équipe ----------
+test('chrono : désactivé par défaut, puis l’équipe passe la main quand le temps est écoulé', () => {
+  const p = partie(10);
+  assert.equal(p.reglages.chrono, 0);
+  p.reglages.chrono = 5;
+  p.horloge = 1_000_000;
+  role(p, 'fugitif').forEach(g => M.deplacerFugitif(p, g, p.joueurs[g].position, reseau));
+  assert.equal(p.phase, 'police'); assert.equal(p.tourEquipe, 0);
+  const flic = role(p, 'policier')[0];
+  assert.equal(M.vue(p, flic).finTour, 1_000_000 + 5 * 60_000);
+  p.horloge = 1_000_000 + 4 * 60_000;
+  assert.equal(M.tempsEcoule(p, flic), false, 'trop tôt : rien ne bouge');
+  assert.equal(p.tourEquipe, 0);
+  p.horloge = 1_000_000 + 5 * 60_000;
+  assert.equal(M.tempsEcoule(p, flic), true);
+  assert.equal(p.tourEquipe, 1);
+  assert.throws(() => M.tempsEcoule(p, 'inconnu'), /inconnu/);
+  const q = M.nouvellePartie('C', 'a', 'Léa'); for (let i = 0; i < 9; i++) M.rejoindre(q, 'b' + i, 'Hugo ' + i);
+  assert.throws(() => M.regler(q, 'a', { chrono: 60 }), /chrono/);
+  M.regler(q, 'a', { chrono: 5 }); assert.equal(q.reglages.chrono, 5);
+});
+
+// ---------- actions sur place, annoncées à tous ----------
+test('actions : seulement sur son propre arrêt, vues de tous, trace datée en manches', () => {
+  const p = partie(10); const fug = role(p, 'fugitif');
+  fug.forEach(g => M.deplacerFugitif(p, g, p.joueurs[g].position, reseau));
+  const e = p.ordreEquipes[0]; const flic = p.ordre.find(f => p.joueurs[f].equipe === e && !p.joueurs[f].corrompu);
+  const ici = p.joueurs[flic].position, voisin = reseau.arrets[ici].voisins[0];
+  assert.throws(() => M.enqueter(p, flic, voisin, reseau), /où tu te trouves/);
+  assert.throws(() => M.arreter(p, flic, voisin, reseau), /où tu te trouves/);
+  p.passages[ici] = [{ manche: p.manche - 3 }];
+  const r = M.enqueter(p, flic, ici, reseau);
+  assert.equal(r.trace, true);
+  assert.ok(r.ilYa === 3 || r.traces?.some(t => t.arret === ici && t.ilYa === 3), 'il y a 3 manches');
+  assert.ok(p.journal.at(-1).texte.includes('enquête à ' + reseau.arrets[ici].nom), 'annoncé à tous');
+  p.passages[ici] = [{ manche: p.manche - 4 }];
+  assert.equal(M.enqueter(p, flic, ici, reseau).trace, M.specialite(p, e) === 'enqueteurs' && reseau.arrets[ici].voisins.some(v => p.passages[v]?.some(x => x.manche >= p.manche - 3)), 'au-delà de 3 manches : plus de trace');
 });

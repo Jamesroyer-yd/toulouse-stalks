@@ -6,7 +6,9 @@
   // une couleur par ligne, comme sur un plan de métro ; reprise de la maquette Figma
   const COUL = { A: '#D9454F', B: '#E6C443', T1: '#4384D1', 'Téléo': '#C2509A', L1: '#E8994A', L2: '#4FB3A9', L3: '#9B8CE0', L4: '#E072A6', L5: '#62AEE6',
     L8: '#B8A75A', L9: '#7CC66C', L10: '#B98262', L12: '#E57B70', L14: '#62C6DB' };
-  const EPAIS = { metro: 10, tram: 7, teleo: 5, lineo: 5 };
+  const EPAIS = { metro: 10, tram: 7, teleo: 5, lineo: 5, bus: 4 };
+  // les quelques bus gardés, qui referment des impasses, sont gris clair
+  const couleur = nom => COUL[nom] || (nom.startsWith('Bus ') ? '#A3ACBD' : '#6E7A92');
   const el = (nom, attrs = {}, parent) => {
     const e = document.createElementNS(NS, nom);
     for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, String(v));
@@ -24,7 +26,7 @@
     // lignes : les tronçons partagés par plusieurs lignes sont dessinés côte à côte
     const parArete = {};
     for (const l of reseau.lignes) l.arrets.forEach((x, k) => { if (!k) return; const cle = Math.min(x, l.arrets[k - 1]) + '-' + Math.max(x, l.arrets[k - 1]); (parArete[cle] ||= []); if (!parArete[cle].includes(l.nom)) parArete[cle].push(l.nom); });
-    for (const mode of ['lineo', 'tram', 'teleo', 'metro'])
+    for (const mode of ['bus', 'lineo', 'tram', 'teleo', 'metro'])
       for (const l of reseau.lignes.filter(x => x.mode === mode)) {
         let d = '';
         l.arrets.forEach((x, k) => {
@@ -33,7 +35,7 @@
           const ox = -(y2 - y1) / lg * dec, oy = (x2 - x1) / lg * dec;
           d += `M${(x1 + ox).toFixed(1)} ${(y1 + oy).toFixed(1)}L${(x2 + ox).toFixed(1)} ${(y2 + oy).toFixed(1)}`;
         });
-        el('path', { d, fill: 'none', stroke: COUL[l.nom] || '#6E7A92', 'stroke-width': EPAIS[mode], 'stroke-linecap': 'round', 'stroke-linejoin': 'round', ...(mode === 'teleo' ? { 'stroke-dasharray': '10 7' } : {}) }, fond);
+        el('path', { d, fill: 'none', stroke: couleur(l.nom), 'stroke-width': EPAIS[mode], 'stroke-linecap': 'round', 'stroke-linejoin': 'round', ...(mode === 'teleo' ? { 'stroke-dasharray': '10 7' } : {}) }, fond);
       }
     // correspondances à pied : trait blanc court entre deux arrêts proches
     for (const [a, b] of reseau.marches || [])
@@ -41,7 +43,7 @@
     // arrêts : correspondances en blanc, les autres cerclés de la couleur de leur ligne
     for (const a of A) {
       const r = rang(a), corr = a.lignes.length > 1;
-      el('circle', { cx: a.x, cy: a.y, r: corr ? 10 : r === 3 ? 7.5 : 6, fill: '#0e0e10', stroke: corr ? '#FFFFFF' : COUL[a.lignes[0]] || '#8B94A8', 'stroke-width': corr ? 3.5 : 3 }, fond);
+      el('circle', { cx: a.x, cy: a.y, r: corr ? 10 : r === 3 ? 7.5 : 6, fill: '#0e0e10', stroke: corr ? '#FFFFFF' : couleur(a.lignes[0]), 'stroke-width': corr ? 3.5 : 3 }, fond);
     }
     // noms : grandes stations toujours, les autres seulement quand on zoome (classe .proche)
     // Chaque nom est posé du côté le plus libre : droite, gauche, dessus ou dessous,
@@ -78,7 +80,7 @@
       if (vus.has(l.nom + x)) continue; vus.add(l.nom + x);
       const g = el('g', { transform: `translate(${A[x].x} ${A[x].y + 26})` }, fond);
       const larg = 12 + l.nom.length * 9;
-      el('rect', { x: -larg / 2, y: -10, width: larg, height: 20, rx: 7, fill: COUL[l.nom] || '#6E7A92' }, g);
+      el('rect', { x: -larg / 2, y: -10, width: larg, height: 20, rx: 7, fill: couleur(l.nom) }, g);
       const t = el('text', { y: 5, class: 'nom-ligne' }, g); t.textContent = l.nom;
     }
     for (const a of A) {

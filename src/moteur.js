@@ -8,7 +8,7 @@
 export const NOMS_EQUIPES = ['Bleue', 'Orange', 'Violette', 'Verte'];
 const PAS_MAX = 2;          // arrêts parcourus par manche, fugitifs comme policiers
 const ACTIONS = 2;          // actions par policier et par tour
-const MEMOIRE_TRACES = 2;   // par défaut, une enquête voit les passages des 2 dernières manches (réglage « traces »)
+const MEMOIRE_TRACES = 4;   // une enquête voit les passages de cette manche et des 3 précédentes : « il y a 0 à 3 manches »
 // en dessous de 6, une équipe de 2 avec un corrompu le démasque aussitôt
 const MIN_JOUEURS = 6, MAX_JOUEURS = 20;
 
@@ -58,19 +58,19 @@ const distances = (reseau, depart) => {
 // sans corrompu.
 // joueurs : [fugitifs, équipes, corrompus, objets, objectif]
 export const EQUILIBRES = {
-  6: [1, 2, 1, 22, 6], 7: [1, 2, 1, 24, 6],
-  8: [2, 2, 1, 26, 10], 9: [2, 2, 1, 26, 9], 10: [2, 2, 1, 26, 8],
-  11: [2, 3, 2, 28, 9], 12: [2, 3, 2, 30, 9], 13: [2, 3, 2, 28, 8], 14: [2, 3, 2, 28, 7],
-  15: [3, 3, 2, 32, 10], 16: [3, 3, 2, 32, 9], 17: [3, 3, 2, 32, 9], 18: [3, 3, 2, 36, 9],
-  19: [3, 4, 3, 36, 9], 20: [3, 4, 3, 36, 9]
+  6: [1, 2, 1, 14, 6], 7: [1, 2, 1, 26, 8],
+  8: [2, 2, 1, 28, 12], 9: [2, 2, 1, 24, 11], 10: [2, 2, 1, 20, 9],
+  11: [2, 3, 2, 30, 12], 12: [2, 3, 2, 34, 12], 13: [2, 3, 2, 22, 9], 14: [2, 3, 2, 26, 8],
+  15: [3, 3, 2, 34, 12], 16: [3, 3, 2, 36, 11], 17: [3, 3, 2, 30, 9], 18: [3, 3, 2, 36, 9],
+  19: [3, 4, 3, 42, 11], 20: [3, 4, 3, 38, 8]
 };
 export function reglagesParDefaut(nb) {
-  if (EQUILIBRES[nb]) { const [fugitifs, equipes, corrompus, objets, objectif] = EQUILIBRES[nb]; return { fugitifs, equipes, corrompus, objets, objectif, manches: 15, traces: MEMOIRE_TRACES, specialites: 1 }; }
+  if (EQUILIBRES[nb]) { const [fugitifs, equipes, corrompus, objets, objectif] = EQUILIBRES[nb]; return { fugitifs, equipes, corrompus, objets, objectif, manches: 15, traces: MEMOIRE_TRACES, specialites: 1, chrono: 0 }; }
   const fugitifs = nb <= 7 ? 1 : 2;
   const police = Math.max(nb - fugitifs, 0);
   const equipes = police >= 9 ? 3 : police >= 4 ? 2 : 1;
   const corrompus = Math.min(equipes - 1, police >= 6 ? 2 : police >= 4 ? 1 : 0);
-  return { fugitifs, equipes, corrompus, objets: 28, objectif: 12, manches: 15, traces: MEMOIRE_TRACES, specialites: 1 };
+  return { fugitifs, equipes, corrompus, objets: 28, objectif: 12, manches: 15, traces: MEMOIRE_TRACES, specialites: 1, chrono: 0 };
 }
 function verifierReglages(r, nb) {
   const police = nb - r.fugitifs;
@@ -82,6 +82,7 @@ function verifierReglages(r, nb) {
   exiger(r.manches >= 3 && r.manches <= 30, 'Nombre de manches impossible.');
   exiger(r.traces >= 1 && r.traces <= 4, 'Durée des traces impossible.');
   exiger(r.specialites === 0 || r.specialites === 1, 'Réglage des spécialités impossible.');
+  exiger((r.chrono ?? 0) >= 0 && (r.chrono ?? 0) <= 15, 'Durée du chrono impossible.');      // minutes par équipe, 0 : sans chrono
 }
 
 // ---------- salle d'attente ----------
@@ -153,20 +154,11 @@ export function lancer(p, id, reseau, rnd = Math.random) {
     const membres = policiers.filter(f => p.joueurs[f].equipe === e);
     p.joueurs[melanger(membres, rnd)[0]].corrompu = true;
   }
-  // départs : policiers sur le métro, fugitifs loin d'eux, objets ailleurs
-  const tous = reseau.arrets.map(a => a.id);
-  const metro = melanger(reseau.arrets.filter(a => a.lignes.some(l => l === 'A' || l === 'B')).map(a => a.id), rnd);
-  policiers.forEach((f, i) => { p.joueurs[f].position = metro[i % metro.length]; });
-  const pris = new Set(policiers.map(f => p.joueurs[f].position));
-  const loin = a => policiers.every(f => (distances(reseau, p.joueurs[f].position)[a] ?? 99) >= 4);
-  const candidats = melanger(tous.filter(a => !pris.has(a)), rnd);
-  for (const f of fugitifs) {
-    const a = candidats.find(c => loin(c) && !pris.has(c)) ?? candidats.find(c => !pris.has(c));
-    p.joueurs[f].position = a; pris.add(a);
-  }
-  p.objets = melanger(tous.filter(a => !pris.has(a)), rnd).slice(0, r.objets);
+  // les objets sont cachés au hasard ; les départs se choisissent ensuite (phase « depart »)
+  p.objets = melanger(reseau.arrets.map(a => a.id), rnd).slice(0, r.objets);
+  p.ordre.forEach(f => { p.joueurs[f].position = null; });
   p.passages = {};               // arrêt → [{ manche }] : passages des fugitifs, base des traces
-  fugitifs.forEach(f => noterPassage(p, p.joueurs[f].position, 0));
+  p.revelations = [];            // objets volés, annoncés à la police à la fin des manches 5 et 10
   p.enquetes = {};               // joueur → ses résultats, vus par lui seul
   p.journal = [];
   p.phase = 'roles';
@@ -177,7 +169,54 @@ export function pret(p, id) {
   exiger(p.phase === 'roles', 'Ce n’est pas le moment.');
   exiger(aJoueur(p, id), 'Joueur inconnu.');
   if (!p.prets.includes(id)) p.prets.push(id);
-  if (p.prets.length === p.ordre.length) debutManche(p);
+  if (p.prets.length === p.ordre.length) debutDepart(p);
+}
+
+// ---------- départ ----------
+// Les policiers choisissent d'abord leur arrêt, visible de tous. Puis les
+// fugitifs choisissent le leur en secret, en voyant la police et les objets,
+// jamais sur un arrêt qui cache un objet. On peut changer d'avis tant que
+// tout son camp n'est pas placé. Un arrêt peut accueillir plusieurs joueurs.
+function debutDepart(p) { p.phase = 'depart'; p.depart = 'police'; }
+const policiers = p => p.ordre.filter(f => p.joueurs[f].role === 'policier');
+const fugitifs = p => p.ordre.filter(f => p.joueurs[f].role === 'fugitif');
+export function placer(p, id, arrivee, reseau) {
+  exiger(p.phase === 'depart', 'Ce n’est pas le moment de choisir son départ.');
+  exiger(aJoueur(p, id), 'Joueur inconnu.');
+  const j = p.joueurs[id];
+  arret(reseau, arrivee);
+  if (p.depart === 'police') {
+    exiger(j.role === 'policier', 'La police choisit son départ en premier.');
+    j.position = arrivee;
+    if (policiers(p).every(f => p.joueurs[f].position != null)) p.depart = 'fugitifs';
+  } else {
+    exiger(j.role === 'fugitif', 'La police est déjà placée.');
+    exiger(!p.objets.includes(arrivee), 'On ne part pas d’un arrêt qui cache un objet.');
+    j.position = arrivee;
+    if (fugitifs(p).every(f => p.joueurs[f].position != null)) commencer(p);
+  }
+}
+// le créateur place au hasard ceux qui tardent : police sur le métro, fugitifs loin d'elle
+function placerAuHasard(p, reseau, rnd = Math.random) {
+  if (p.depart === 'police') {
+    const metro = melanger(reseau.arrets.filter(a => a.lignes.some(l => l === 'A' || l === 'B')).map(a => a.id), rnd);
+    policiers(p).filter(f => p.joueurs[f].position == null).forEach((f, i) => { p.joueurs[f].position = metro[i % metro.length]; });
+    p.depart = 'fugitifs';
+    return;
+  }
+  const police = policiers(p).map(f => distances(reseau, p.joueurs[f].position));
+  const libresDepart = melanger(reseau.arrets.map(a => a.id).filter(a => !p.objets.includes(a)), rnd);
+  const pris = new Set(fugitifs(p).map(f => p.joueurs[f].position));
+  for (const f of fugitifs(p).filter(f => p.joueurs[f].position == null)) {
+    const a = libresDepart.find(a => !pris.has(a) && police.every(d => (d[a] ?? 99) >= 4)) ?? libresDepart.find(a => !pris.has(a));
+    p.joueurs[f].position = a; pris.add(a);
+  }
+  commencer(p);
+}
+function commencer(p) {
+  fugitifs(p).forEach(f => noterPassage(p, p.joueurs[f].position, 0));
+  delete p.depart;
+  debutManche(p);
 }
 
 // ---------- spécialités des équipes, en essai ----------
@@ -235,6 +274,7 @@ function finTourFugitifs(p) {
 }
 function debutTourEquipe(p) {
   const e = p.ordreEquipes[p.tourEquipe];
+  p.debutTour = p.horloge ?? null;     // heure du serveur, pour le chrono par équipe
   p.tour = {};
   for (const f of membres(p, e)) p.tour[f] = { deplace: false, actions: ACTIONS, fini: false };
 }
@@ -259,21 +299,25 @@ export function deplacerPolicier(p, id, arrivee, reseau) {
   if (patrouille) j.arrivee = p.manche;
   j.position = arrivee; t.deplace = true;
 }
-const aPortee = (reseau, j, cible) => arret(reseau, cible) === j.position || reseau.arrets[j.position].voisins.includes(cible);
+// on n'enquête et n'arrête que sur l'arrêt où l'on se trouve
+const aPortee = (reseau, j, cible) => arret(reseau, cible) === j.position;
 
 export function enqueter(p, id, cible, reseau) {
   const j = monTour(p, id), t = p.tour[id];
   exiger(t.actions > 0, 'Tu n’as plus d’action.');
   exiger(t.deplace || !estPatrouille(p, j), 'La Patrouille doit d’abord changer d’arrêt.');
-  exiger(aPortee(reseau, j, cible), 'Tu enquêtes sur ton arrêt ou un arrêt voisin.');
+  exiger(aPortee(reseau, j, cible), 'Tu enquêtes sur l’arrêt où tu te trouves.');
   t.actions -= 1; t.deplace = true;
   const recent = a => (p.passages[a] || []).filter(x => x.manche >= p.manche - (p.reglages.traces ?? MEMOIRE_TRACES) + 1 || (p.manche === 1 && x.manche === 0));
   const zone = specialite(p, j.equipe) === 'enqueteurs' ? [cible, ...reseau.arrets[cible].voisins] : [cible];
   const traces = zone.filter(a => recent(a).length).map(a => ({ arret: a, manche: Math.max(...recent(a).map(x => x.manche)) }));
   const vus = traces.map(t => ({ manche: t.manche }));
   const res = { manche: p.manche, arret: cible, trace: vus.length > 0, mancheTrace: vus.length ? Math.max(...vus.map(x => x.manche)) : null };
-  if (zone.length > 1) { res.zone = zone; res.traces = traces; }
+  if (res.trace) res.ilYa = p.manche - res.mancheTrace;
+  if (zone.length > 1) { res.zone = zone; res.traces = traces.map(t => ({ ...t, ilYa: p.manche - t.manche })); }
   (p.enquetes[id] ||= []).push(res);
+  // tout le monde voit qu'il enquête, et où ; le résultat reste à lui
+  p.journal.push({ manche: p.manche, texte: `${j.nom}, équipe ${NOMS_EQUIPES[j.equipe]}, enquête à ${reseau.arrets[cible].nom}.` });
   finSiPlusDAction(p, id);
   return res;
 }
@@ -282,7 +326,7 @@ export function arreter(p, id, cible, reseau) {
   const j = monTour(p, id), t = p.tour[id];
   exiger(t.actions > 0, 'Tu n’as plus d’action.');
   exiger(t.deplace || !estPatrouille(p, j), 'La Patrouille doit d’abord changer d’arrêt.');
-  exiger(aPortee(reseau, j, cible), 'Tu arrêtes sur ton arrêt ou un arrêt voisin.');
+  exiger(aPortee(reseau, j, cible), 'Tu arrêtes sur l’arrêt où tu te trouves.');
   t.actions -= 1; t.deplace = true;
   const zone = specialite(p, j.equipe) === 'intervention' ? [cible, ...reseau.arrets[cible].voisins] : [cible];
   const pris = libres(p).filter(f => zone.includes(p.joueurs[f].position));
@@ -292,7 +336,7 @@ export function arreter(p, id, cible, reseau) {
     for (const f of pris) { const g = p.joueurs[f]; g.libre = false; g.objetsPerdus = g.objets; g.objets = 0; }
     j.arrestations += pris.length;
     p.journal.push({ manche: p.manche, texte: `${pris.map(f => p.joueurs[f].nom).join(' et ')} arrêté${pris.length > 1 ? 's' : ''} à ${nomArret} par ${j.nom}, équipe ${NOMS_EQUIPES[j.equipe]}.` });
-    if (!libres(p).length) return finPartie(p, 'police', 'Tous les fugitifs sont arrêtés.');
+    if (!libres(p).length) { finPartie(p, 'police', 'Tous les fugitifs sont arrêtés.'); return { reussie: true }; }
   } else {
     p.journal.push({ manche: p.manche, texte: `${j.nom}, équipe ${NOMS_EQUIPES[j.equipe]}, tente une arrestation à ${nomArret} : personne.` });
     if (pris.length) j.annulees = (j.annulees || 0) + 1;
@@ -315,12 +359,31 @@ function equipeSuivante(p) {
   p.tourEquipe += 1;
   if (p.tourEquipe < p.ordreEquipes.length) return debutTourEquipe(p);
   if (p.manche >= p.reglages.manches) return finPartie(p, 'police', 'Les fugitifs n’ont pas ramassé assez d’objets à temps.');
+  // le total des objets volés n'est annoncé à la police qu'à la fin des manches 5 et 10
+  if (estRevelation(p, p.manche)) {
+    const n = objetsEquipe(p);
+    (p.revelations ||= []).push({ manche: p.manche, objets: n });
+    p.journal.push({ manche: p.manche, texte: `Fin de la manche ${p.manche} : les fugitifs ont volé ${n} objet${n > 1 ? 's' : ''} sur ${p.reglages.objectif}.` });
+  }
   debutManche(p);
 }
+export const estRevelation = (p, m) => m % 5 === 0 && m < p.reglages.manches;
+// Chrono par équipe, en option : quand le temps est écoulé, n'importe quel
+// téléphone le signale et le serveur vérifie l'heure avant de passer la main.
+export function tempsEcoule(p, id) {
+  exiger(aJoueur(p, id) || estMJ(p, id), 'Joueur inconnu.');
+  const fin = finDuTour(p);
+  if (fin == null || (p.horloge ?? 0) < fin) return false;
+  p.journal.push({ manche: p.manche, texte: `Temps écoulé pour l’équipe ${NOMS_EQUIPES[equipeEnCours(p)]}.` });
+  equipeSuivante(p);
+  return true;
+}
+const finDuTour = p => p.phase === 'police' && p.reglages.chrono > 0 && p.debutTour != null ? p.debutTour + p.reglages.chrono * 60_000 : null;
 // le créateur débloque un joueur absent : les fugitifs qui n'ont pas joué restent sur place
-export function forcerSuite(p, id) {
+export function forcerSuite(p, id, reseau) {
   exiger(id === p.createur, 'Seul le créateur peut forcer la suite.');
-  if (p.phase === 'roles') return debutManche(p);
+  if (p.phase === 'roles') return debutDepart(p);
+  if (p.phase === 'depart') { exiger(reseau, 'Plan manquant.'); return placerAuHasard(p, reseau); }
   if (p.phase === 'fugitifs') return finTourFugitifs(p);
   if (p.phase === 'police') return equipeSuivante(p);
   if (p.phase === 'accusation') return resultats(p);
@@ -390,9 +453,12 @@ export function vue(p, id) {
   if (p.reglages.specialites) v.specialites = [...Array(p.reglages.equipes).keys()].map(e => specialite(p, e));
   if (moi.role === 'fugitif' || moi.corrompu) v.corrompus = p.ordre.filter(f => p.joueurs[f].corrompu);
   if (moi.role === 'fugitif') { v.objets = p.objets; v.coup = p.coups?.[id] ?? null; }
-  v.objetsRamasses = objetsEquipe(p);
+  // la police, corrompus compris, ne connaît le total qu'aux annonces des manches 5 et 10
+  if (moi.role === 'fugitif' || p.phase === 'accusation' || fin) v.objetsRamasses = objetsEquipe(p);
+  v.revelations = p.revelations || [];
   if (moi.role === 'policier') { v.enquetes = p.enquetes[id] || []; }
-  if (p.phase === 'police') { v.equipeEnCours = equipeEnCours(p); v.ordreEquipes = p.ordreEquipes; v.tour = p.tour[id] ?? null; v.finis = Object.keys(p.tour).filter(f => p.tour[f].fini); }
+  if (p.phase === 'depart') { v.depart = p.depart; v.places = p.ordre.filter(f => p.joueurs[f].position != null && (p.joueurs[f].role === 'policier' || voitFugitifs)); }
+  if (p.phase === 'police') { v.equipeEnCours = equipeEnCours(p); v.ordreEquipes = p.ordreEquipes; v.tour = p.tour[id] ?? null; v.finis = Object.keys(p.tour).filter(f => p.tour[f].fini); v.finTour = finDuTour(p); }
   if (p.phase === 'fugitifs') v.ontJoue = Object.keys(p.coups);
   if (['fugitifs', 'police'].includes(p.phase)) v.bloques = arretsBloques(p);   // public : la police est visible de tous
   if (p.phase === 'accusation') { v.gagnant = p.gagnant; v.raison = p.raison; v.monVote = id in p.votes ? p.votes[id] : undefined; v.votants = Object.keys(p.votes); }
@@ -414,8 +480,9 @@ function vueMJ(p, id) {
   const v = { code: p.code, phase: p.phase, createur: p.createur, mj: p.mj.nom, estMJ: true, moi: id, reglages: p.reglages, manche: p.manche, joueurs, journal: p.journal };
   if (!p.ordre.some(f => p.joueurs[f].role)) return v;
   if (p.reglages.specialites) v.specialites = [...Array(p.reglages.equipes).keys()].map(e => specialite(p, e));
-  v.objets = p.objets; v.objetsRamasses = objetsEquipe(p);
-  if (p.phase === 'police') { v.equipeEnCours = equipeEnCours(p); v.ordreEquipes = p.ordreEquipes; v.finis = Object.keys(p.tour).filter(f => p.tour[f].fini); }
+  v.objets = p.objets; v.objetsRamasses = objetsEquipe(p); v.revelations = p.revelations || [];
+  if (p.phase === 'depart') v.depart = p.depart;
+  if (p.phase === 'police') { v.equipeEnCours = equipeEnCours(p); v.ordreEquipes = p.ordreEquipes; v.finis = Object.keys(p.tour).filter(f => p.tour[f].fini); v.finTour = finDuTour(p); }
   if (p.phase === 'fugitifs') v.ontJoue = Object.keys(p.coups);
   if (['fugitifs', 'police'].includes(p.phase)) v.bloques = arretsBloques(p);
   if (p.phase === 'accusation') { v.gagnant = p.gagnant; v.raison = p.raison; v.votants = Object.keys(p.votes); }

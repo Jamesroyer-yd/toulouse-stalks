@@ -40,10 +40,22 @@ assert.ok(joueurs[1].erreurs.some(e => /créateur/.test(e)), 'seul le créateur 
 envoi(joueurs[0], { type: 'lancer' }); await attendre(300);
 assert.equal(joueurs[0].vue.phase, 'roles');
 joueurs.forEach(j => envoi(j, { type: 'pret' })); await attendre(400);
-assert.equal(joueurs[0].vue.phase, 'fugitifs');
+assert.equal(joueurs[0].vue.phase, 'depart');
 
 const fug = joueurs.filter(j => j.vue.role.role === 'fugitif');
 const pol = joueurs.filter(j => j.vue.role.role === 'policier');
+// départs : la police d'abord, puis les fugitifs, jamais sur un objet
+envoi(fug[0], { type: 'placer', arret: 0 }); await attendre(150);
+assert.ok(fug[0].erreurs.some(e => /police choisit/.test(e)), 'les fugitifs attendent la police');
+pol.forEach((p, i) => envoi(p, { type: 'placer', arret: [6, 34, 47, 65][i % 4] })); await attendre(400);
+assert.equal(joueurs[0].vue.depart, 'fugitifs');
+const objets = fug[0].vue.objets;
+envoi(fug[0], { type: 'placer', arret: objets[0] }); await attendre(150);
+assert.ok(fug[0].erreurs.some(e => /objet/.test(e)), 'pas de départ sur un objet');
+const sansObjet = reseau.arrets.map(a => a.id).filter(a => !objets.includes(a));
+fug.forEach((f, i) => envoi(f, { type: 'placer', arret: sansObjet[10 + i * 20] })); await attendre(400);
+assert.equal(joueurs[0].vue.phase, 'fugitifs');
+assert.equal(pol[0].vue.objetsRamasses, undefined, 'la police ne voit pas le compteur');
 // un policier honnête ne voit ni position de fugitif ni objets
 const hon = pol.find(j => !j.vue.role.corrompu);
 assert.ok(hon.vue.joueurs.filter(x => x.role === 'fugitif').every(x => x.position === undefined));

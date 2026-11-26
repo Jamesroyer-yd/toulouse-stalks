@@ -137,6 +137,7 @@ export class Partie extends DurableObject {
     try {
       // en essai, les actions du MJ incarné partent au nom du faux joueur
       const acteur = p.essai && a.comme && M.estMJ(p, a.id) ? a.comme : a.id;
+      p.horloge = Date.now();           // heure du serveur : seule référence du chrono
       const r = this.jouer(p, acteur, msg);
       await this.ctx.storage.put('partie', p);
       if (r !== undefined) ws.send(JSON.stringify({ type: 'retour', action: msg.type, resultat: r }));
@@ -153,12 +154,14 @@ export class Partie extends DurableObject {
       case 'regler': return M.regler(p, id, msg.reglages);
       case 'lancer': return M.lancer(p, id, reseau);
       case 'pret': return M.pret(p, id);
+      case 'placer': return M.placer(p, id, msg.arret, reseau);
+      case 'tempsEcoule': return M.tempsEcoule(p, id);
       case 'deplacerFugitif': return M.deplacerFugitif(p, id, msg.arret, reseau);
       case 'deplacerPolicier': return M.deplacerPolicier(p, id, msg.arret, reseau);
       case 'enqueter': return M.enqueter(p, id, msg.arret, reseau);
       case 'arreter': return M.arreter(p, id, msg.arret, reseau);
       case 'finirTour': return M.finirTour(p, id);
-      case 'forcer': return M.forcerSuite(p, id);
+      case 'forcer': return M.forcerSuite(p, id, reseau);
       case 'accuser': return M.accuser(p, id, msg.cible ?? null);
       default: throw new M.Erreur('Action inconnue.');
     }
@@ -175,6 +178,7 @@ export class Partie extends DurableObject {
     const essaiMJ = p.essai && M.estMJ(p, a.id);
     const v = M.vue(p, essaiMJ && a.comme ? a.comme : a.id);
     if (essaiMJ) v.essai = { comme: a.comme || null, joueurs: M.listeEssai(p), createur: a.id };
+    v.maintenant = Date.now();          // le téléphone en déduit l'écart avec son horloge
     return v;
   }
   erreur(ws, message) { try { ws.send(JSON.stringify({ type: 'erreur', message })); } catch {} }

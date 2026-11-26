@@ -39,6 +39,22 @@ function simuler(reseau, nb, rnd) {
   if (Object.keys(forces).length) M.regler(p, 'j0', forces);
   M.lancer(p, 'j0', reseau, rnd);
   p.ordre.forEach(id => M.pret(p, id));
+  // départs choisis : la police s'étale sur les grandes correspondances, chacun
+  // le plus loin possible des collègues déjà placés ; puis chaque fugitif prend
+  // un arrêt sans objet, loin de la police et entouré d'objets
+  const flics = p.ordre.filter(f => p.joueurs[f].role === 'policier');
+  const hubs = A.filter(a => a.lignes.length > 1).map(a => a.id);
+  for (const f of flics) {
+    const places = flics.map(g => p.joueurs[g].position).filter(x => x != null);
+    const loin = a => places.length ? Math.min(...places.map(q => D[q][a])) : rnd();
+    M.placer(p, f, hubs.slice().sort((a, b) => loin(b) - loin(a) || rnd() - 0.5)[0], reseau);
+  }
+  const police0 = flics.map(f => p.joueurs[f].position);
+  for (const f of p.ordre.filter(f => p.joueurs[f].role === 'fugitif')) {
+    const note = a => 3 * Math.min(6, ...police0.map(q => D[q][a])) + 2 * p.objets.filter(o => D[a][o] <= 2).length + rnd() * 2;
+    const choix = A.map(a => a.id).filter(a => !p.objets.includes(a)).sort((a, b) => note(b) - note(a))[0];
+    M.placer(p, f, choix, reseau);
+  }
   const pistes = {};   // équipe → [{ arret, manche }] : traces connues de l'équipe
   let garde = 0;
   while (['fugitifs', 'police'].includes(p.phase) && garde++ < 500) {
@@ -77,25 +93,19 @@ function simuler(reseau, nb, rnd) {
       const options = Object.keys(M.accessibles(reseau, j.position, spe === 'patrouille' ? 3 : 2)).map(Number).filter(x => spe !== 'patrouille' || x !== j.position);
       const coeq = p.ordre.filter(g => g !== f && p.joueurs[g].role === 'policier' && p.joueurs[g].equipe === e).map(g => p.joueurs[g].position);
       const s0 = suspects();
-      const score = a => s0.length ? Math.min(...s0.map(s => D[a][s])) : cible != null ? D[a][cible] : -Math.min(99, ...coeq.map(c => D[a][c])) + rnd();
+      // on agit sur place : aller sur un suspect, sinon vers la piste, sans refouiller un arrêt déjà vu cette manche
+      const score = a => (s0.length ? Math.min(...s0.map(s => D[a][s])) : cible != null ? D[a][cible] : -Math.min(99, ...coeq.map(c => D[a][c])) + rnd()) + (fouilles[a] === p.manche ? 3 : 0);
       M.deplacerPolicier(p, f, options.sort((a, b) => score(a) - score(b))[0], reseau);
-      // actions : arrêter un suspect à portée, sinon enquêter sur un arrêt pas encore fouillé
+      // actions, toujours sur son propre arrêt : arrêter si un suspect y est, sinon y enquêter une fois
       for (let k = 0; k < 2 && p.phase === 'police' && !p.tour[f].fini; k++) {
-        const autour = [j.position, ...A[j.position].voisins];
-        const sus = suspects();
-        if (spe === 'intervention') {
-          // une arrestation couvre l'arrêt et ses voisins : viser celui qui couvre le plus de suspects
-          const couvre = a => [a, ...A[a].voisins].filter(x => sus.includes(x));
-          const meilleur = autour.map(a => [a, couvre(a)]).sort((x, y) => y[1].length - x[1].length)[0];
-          if (meilleur && meilleur[1].length) { meilleur[1].forEach(x => { essayes[x] = p.manche; }); M.arreter(p, f, meilleur[0], reseau); continue; }
-        } else {
-          const s = sus.find(a => autour.includes(a));
-          if (s !== undefined) { essayes[s] = p.manche; M.arreter(p, f, s, reseau); continue; }
-        }
-        const lieu = autour.filter(a => fouilles[a] !== p.manche).sort((a, b) => (cible != null ? D[a][cible] - D[b][cible] : rnd() - 0.5))[0] ?? j.position;
-        fouilles[lieu] = p.manche;
-        const r = M.enqueter(p, f, lieu, reseau);
-        if (r.trace && !j.corrompu) { if (r.traces) r.traces.forEach(t => connues.push({ arret: t.arret, manche: t.manche })); else connues.push({ arret: lieu, manche: r.mancheTrace }); }
+        const ici = j.position, sus = suspects();
+        // l'Intervention arrête sur son arrêt et ses voisins
+        const couverts = (spe === 'intervention' ? [ici, ...A[ici].voisins] : [ici]).filter(x => sus.includes(x));
+        if (couverts.length) { couverts.forEach(x => { essayes[x] = p.manche; }); M.arreter(p, f, ici, reseau); continue; }
+        if (fouilles[ici] === p.manche) break;           // déjà fouillé cette manche : rien d'utile à faire ici
+        fouilles[ici] = p.manche;
+        const r = M.enqueter(p, f, ici, reseau);
+        if (r.trace && !j.corrompu) { if (r.traces) r.traces.forEach(t => connues.push({ arret: t.arret, manche: t.manche })); else connues.push({ arret: ici, manche: r.mancheTrace }); }
       }
       if (p.phase === 'police' && p.tour[f] && !p.tour[f].fini) M.finirTour(p, f);
     }
